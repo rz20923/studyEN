@@ -1,0 +1,23 @@
+# XcodeGen 生成物
+*.xcodeproj/
+*.xcworkspace/
+
+# Xcode
+build/
+DerivedData/
+xcuserdata/
+
+# fastlane
+fastlane/report.xml
+fastlane/README.md
+fastlane/test_output/
+*.ipa
+*.dSYM.zip
+
+# 密钥绝不入库
+*.p8
+*.p12
+*.mobileprovision
+
+# 本地工具配置
+.claude/

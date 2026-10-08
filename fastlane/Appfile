@@ -1,0 +1,2 @@
+app_identifier("com.studyen.app")
+team_id(ENV["TEAM_ID"])
