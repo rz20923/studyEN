@@ -20,7 +20,7 @@ platform :ios do
       app_identifier: APP_ID,
       team_id: ENV["TEAM_ID"],
       api_key: api_key,
-      readonly: ENV["MATCH_READONLY"] != "false"
+      readonly: false
     )
 
     profile = lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING][APP_ID]
