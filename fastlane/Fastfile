@@ -5,7 +5,8 @@ APP_ID = "com.studyen.app"
 platform :ios do
   desc "签名打包并上传到 TestFlight（在 GitHub Actions 的 macOS runner 上运行）"
   lane :beta do
-    setup_ci
+    # 注释掉 setup_ci，防止强制开启 match 只读
+    # setup_ci
 
     api_key = app_store_connect_api_key(
       key_id: ENV["ASC_KEY_ID"],
@@ -14,13 +15,22 @@ platform :ios do
       is_key_content_base64: true
     )
 
-    # 证书和描述文件加密存放在私有 Git 仓库；首次运行设 MATCH_READONLY=false 让它自动创建
+    create_keychain(
+      name: "fastlane_tmp_keychain",
+      password: "password",
+      default_keychain: true,
+      unlock: true,
+      timeout: 3600
+    )
+
     match(
       type: "appstore",
       app_identifier: APP_ID,
       team_id: ENV["TEAM_ID"],
       api_key: api_key,
-      readonly: false
+      readonly: false,
+      keychain_name: "fastlane_tmp_keychain",
+      keychain_password: "password"
     )
 
     profile = lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING][APP_ID]
