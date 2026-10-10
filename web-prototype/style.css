@@ -151,6 +151,42 @@ ul.rules { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; 
 .sheet i.cur { outline: 2px solid var(--blue); }
 .formula { font-weight: 800; letter-spacing: 1px; text-align: center; margin: 8px 0; }
 
+/* 怎么读 */
+.pron { margin-top: 12px; }
+.pron summary { font-weight: 700; font-size: 14px; cursor: pointer; }
+.pron-line { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 2px; margin: 8px 0; }
+.pw { display: inline-flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0 2px; border-radius: 6px; }
+.pw:hover { background: var(--card-2); }
+.pw b { font-weight: 500; color: var(--muted); font-size: 15px; }
+.pw.st b { font-weight: 800; color: var(--text); font-size: 17px; }
+.pw.fc b { text-decoration: underline; text-decoration-color: var(--blue); text-underline-offset: 3px; }
+.pw small { font-size: 11px; color: var(--muted); }
+.pw.wk small { color: var(--orange); }
+.lk { display: inline-flex; flex-direction: column; align-items: center; color: var(--blue); font-weight: 800; }
+.lk small { font-size: 9px; }
+.lk-flap, .lk-assim { color: var(--purple); }
+.lk-drop { color: var(--muted); }
+.pron-notes { margin: 4px 0 0; padding-left: 18px; font-size: 13px; color: var(--muted); }
+.wordfb .miss { cursor: pointer; }
+.meter i { display: inline-block; width: 7px; background: var(--gray); border-radius: 2px; margin-right: 2px; vertical-align: bottom; }
+.meter i.on { background: var(--blue); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+.chips .pair { color: var(--orange); }
+#modal { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); display: none; z-index: 50; overflow-y: auto; padding: 16px; }
+#modal.on { display: block; }
+.sheet-panel { max-width: 480px; margin: 24px auto; background: var(--bg); border-radius: 16px; padding: 16px; }
+.seg.four { grid-template-columns: repeat(4, 1fr); }
+/* 随手练 */
+select { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; }
+.fcard { background: var(--card); border-radius: 22px; padding: 28px 20px; margin: 14px 0; min-height: 300px; text-align: center;
+  cursor: pointer; box-shadow: 0 6px 20px rgba(0, 0, 0, .08); touch-action: pan-y; user-select: none; }
+.fcard.flipped { background: color-mix(in srgb, var(--blue) 6%, var(--card)); }
+.fcard hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
+.option { display: block; width: 100%; margin: 8px 0; padding: 14px; border-radius: 14px; border: 0; background: var(--card);
+  color: var(--text); font: inherit; font-size: 18px; font-weight: 600; cursor: pointer; }
+.option.right { background: var(--green); color: #fff; }
+.option.wrong { background: var(--red); color: #fff; }
+
 #tabs {
   position: fixed; left: 0; right: 0; bottom: 0;
   display: flex; justify-content: center;

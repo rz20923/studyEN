@@ -20,6 +20,7 @@ const STORE_KEY = 'studyen-prototype-v1';
 
 let CHUNKS = [], BYID = {}, ORDER = [];
 let DRILLS = [], DRILL_BYID = {};
+let PRON = { guides: [], sentences: {}, words: {} };
 let store = loadStore();
 let tab = 'today';
 let S = null; // 当前训练会话
@@ -220,7 +221,7 @@ function sheetHTML() {
     return `<i class="${cls}">${i + 1}</i>`;
   }).join('');
   const done = S.answers.filter(x => x != null).length, right = S.answers.filter(x => x).length;
-  return `<div class="sheet-wrap"><div class="small muted">答题卡 · 已答 ${done}/${S.queue.length} · 对 ${right}</div><div class="sheet">${cells}</div></div>`;
+  return `<div class="sheet-wrap"><div class="small muted">本轮答题 · 已答 ${done}/${S.queue.length} · 对 ${right}</div><div class="sheet">${cells}</div></div>`;
 }
 const segsHTML = d => `<div class="segs">${d.segments.map(x => `<span class="r-${x.role}">${esc(x.en)}<small>${ROLE_ZH[x.role]}</small></span>`).join('')}</div>`;
 function orderLessonHTML() {
@@ -311,9 +312,10 @@ const speakBtn = (text, slow) => `<button class="icon-btn" data-action="speak" d
 
 function render() {
   if (S) { $tabs.innerHTML = ''; renderSession(); return; }
-  $tabs.innerHTML = [['today', '今天'], ['library', '语块库'], ['stats', '进度'], ['dev', '测试工具']]
+  $tabs.innerHTML = [['today', '今天'], ['practice', '随手练'], ['library', '语块库'], ['stats', '进度'], ['dev', '测试工具']]
     .map(([k, label]) => `<button data-action="tab" data-tab="${k}" class="${tab === k ? 'on' : ''}">${label}</button>`).join('');
   if (tab === 'today') renderToday();
+  else if (tab === 'practice') renderPractice();
   else if (tab === 'library') renderLibrary();
   else if (tab === 'stats') renderStats();
   else renderDev();
@@ -646,7 +648,7 @@ function renderOrderCard(c, top) {
   let extra = '';
   if (S.revealed) {
     extra += `<p class="${S.correct ? 'result-ok' : 'result-no'}">${S.correct ? '✔ 语序正确' : '✘ 语序没过'}</p>${segsHTML(c)}
-      <div class="row"><b class="grow">${esc(drillSentence(c))}</b>${speakBtn(drillSentence(c))}</div>`;
+      <div class="row"><b class="grow">${esc(drillSentence(c))}</b>${speakBtn(drillSentence(c))}</div>${pronHTML(c.id)}`;
   }
   if (S.recording || S.transcript) extra += `<div class="small muted" style="margin-top:8px">听到的：</div><div class="heard">${esc(S.transcript || '…')}</div>`;
   if (S.feedback) extra += `<div class="feedback">${esc(S.feedback)}</div>`;
@@ -708,7 +710,7 @@ function renderSession() {
       <div class="row"><span class="big grow">${esc(c.phrase)}</span>${speakBtn(c.phrase)}</div>
       <div style="font-size:18px">${esc(c.meaning)} ${c.replaces ? `<span class="strike">≈ ${esc(c.replaces)}</span>` : ''}</div>
       <div class="example"><div class="row"><b class="grow">${esc(c.example)}</b>${speakBtn(c.example)}${speakBtn(c.example, true)}</div>
-        <div class="muted">${esc(c.exampleZh)}</div>${partsHTML(c)}</div>
+        <div class="muted">${esc(c.exampleZh)}</div>${partsHTML(c)}</div>${pronBlock(c)}
       ${c.tip ? `<div class="muted small">💡 ${esc(c.tip)}</div>` : ''}`
     : `
       <div class="big">${esc(c.meaning)}</div>
@@ -726,8 +728,9 @@ function renderSession() {
   }
   if (isExamMode(S.mode) && !S.revealed) extra += `<p class="muted small">⏱ 限时 ${PLAN.examAnswerSeconds} 秒，脱口而出才算${store.dev.typeMode ? '（键盘模式不计时）' : ''}</p>`;
   if (S.mode === 'learn' && S.readPasses < PLAN.readAloudTimes && S.transcript && !S.recording) {
-    extra += `<div class="small muted" style="margin-top:8px">发音反馈（红色 = 没读出来或没读清，点上面对应的那一段再听一遍）：</div>
-      <div class="wordfb">${wordFeedback(c.example, S.transcript).map(x => `<span class="${x.ok ? 'ok' : 'miss'}">${esc(x.t)}</span>`).join(' ')}</div>`;
+    extra += `<div class="small muted" style="margin-top:8px">发音反馈（红色 = 没读出来或没读清；点红色的词看怎么发音）：</div>
+      <div class="wordfb">${wordFeedback(c.example, S.transcript).map(x => x.ok ? `<span class="ok">${esc(x.t)}</span>`
+        : `<span class="miss" data-action="word" data-word="${esc(x.t)}">${esc(x.t)}</span>`).join(' ')}</div>`;
   }
   if (S.recording || S.transcript) extra += `<div class="small muted">听到的：</div><div class="heard">${esc(S.transcript || '…')}</div>`;
   if (S.feedback) extra += `<div class="feedback">${esc(S.feedback)}</div>`;
@@ -769,6 +772,12 @@ function statusBadge(id) {
   return p.box >= MASTERED_BOX ? '<span class="badge ok">已掌握</span>' : '<span class="badge mid">学习中</span>';
 }
 function renderLibrary() {
+  if (libKind === 'pron') {
+    $app.innerHTML = `<h1>语块库</h1>${libSegHTML()}
+      <p class="muted small">中国人最容易发不准的 ${PRON.guides.length} 个音：嘴张多大、唇形、舌头放哪、常见错误。练习词和对比词都能点击朗读。</p>
+      ${PRON.guides.map(g => `<details class="card"><summary><b>/${esc(g.ipa)}/</b> ${esc(g.name)} <span class="muted small">${esc(g.words.slice(0, 3).join(' · '))}</span></summary>${guideCardHTML(g, false)}</details>`).join('')}`;
+    return;
+  }
   if (libKind === 'order') {
     $app.innerHTML = `<h1>语块库</h1>${libSegHTML()}
       <div class="card">${orderLessonHTML()}</div>
@@ -802,7 +811,7 @@ function renderLibrary() {
 }
 
 function libSegHTML() {
-  return `<div class="seg three">${[['phrasal', '短语动词'], ['filler', '谈话润滑剂'], ['order', '语序规则']]
+  return `<div class="seg four">${[['phrasal', '短语动词'], ['filler', '润滑剂'], ['order', '语序'], ['pron', '发音指南']]
     .map(([k, label]) => `<button data-action="lib-kind" data-kind="${k}" class="${libKind === k ? 'on' : ''}">${label}</button>`).join('')}</div>`;
 }
 
@@ -886,12 +895,231 @@ function devMicTest() {
   r.start();
 }
 
+// ---------- 发音：怎么读 + 嘴型 ----------
+const LINK_LABEL = { link: '连', flap: '闪', glide: '滑', drop: '吞', assim: '化', merge: '并', hdrop: '连' };
+// 和生成脚本一致的查词方式：小写、去掉两端标点
+function pronKey(token) {
+  let t = token.replace(/’/g, "'").toLowerCase().replace(/^[^a-z0-9]+/, '').replace(/(\.\.\.|…)$/, '');
+  if (t !== 'p.m.') t = t.replace(/[^a-z0-9'.]+$/, '').replace(/\.+$/, '');
+  return t;
+}
+function pronHTML(key, showNotes = true) {
+  const s = PRON.sentences[key];
+  if (!s) return '';
+  const linkAt = {};
+  s.links.forEach(l => { linkAt[l.i] = l.type; });
+  const toks = s.tokens.map((t, i) => `<span class="pw${t.stress ? ' st' : ''}${t.weak ? ' wk' : ''}${t.focus ? ' fc' : ''}" data-action="word" data-word="${esc(t.t)}"><b>${esc(t.t)}</b><small>${t.ipa ? '/' + esc(t.ipa) + '/' : '&nbsp;'}</small></span>`
+    + (linkAt[i] ? `<span class="lk lk-${linkAt[i]}">‿<small>${LINK_LABEL[linkAt[i]]}</small></span>` : '')).join('');
+  return `<div class="pron-line">${toks}</div>${showNotes ? `<ul class="pron-notes">${s.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}`;
+}
+function pronBlock(c) {
+  return `<details class="pron" open><summary>〰 怎么读：重音 · 弱读 · 连读（点单词看嘴型）</summary>${pronHTML(c.id + ':p', false)}${pronHTML(c.id)}</details>`;
+}
+function guideCardHTML(g, title = true) {
+  const bars = [1, 2, 3, 4].map(i => `<i class="${i <= g.open ? 'on' : ''}" style="height:${6 + i * 4}px"></i>`).join('');
+  return `<div class="guide">${title ? `<h2>${esc(g.name)} /${esc(g.ipa)}/</h2>` : ''}
+    <div class="row small" style="flex-wrap:wrap"><span class="meter">张口 ${bars} ${['', '小', '半开', '较大', '最大'][g.open]}</span><span>👄 ${esc(g.lips)}</span></div>
+    <p class="small">👅 ${esc(g.tongue)}</p><p>${esc(g.how)}</p><p class="small" style="color:var(--orange)">⚠️ ${esc(g.mistake)}</p>
+    ${g.words.length ? `<div class="small muted">练习词（点击朗读）</div><div class="chips">${g.words.map(w => `<button class="ghost" data-action="speak" data-slow="1" data-text="${esc(w)}">${esc(w)}</button>`).join('')}</div>` : ''}
+    ${g.pairs.length ? `<div class="small muted">对比着听，别读混</div><div class="chips">${g.pairs.map(p => `<button class="ghost pair" data-action="speak" data-slow="1" data-text="${esc(p.join(', '))}">${esc(p.join(' / '))}</button>`).join('')}</div>` : ''}</div>`;
+}
+function openWord(token) {
+  const k = pronKey(token), info = PRON.words[k];
+  const guides = (info ? info.g : []).map(id => PRON.guides.find(g => g.id === id)).filter(Boolean);
+  let m = document.getElementById('modal');
+  if (!m) { m = document.createElement('div'); m.id = 'modal'; document.body.appendChild(m); }
+  m.innerHTML = `<div class="sheet-panel"><div class="row"><div class="grow"><h1 style="margin:0">${esc(k)}</h1>${info ? `<div class="muted">/${esc(info.ipa)}/</div>` : ''}</div>
+      ${speakBtn(k)}${speakBtn(k, true)}<button class="ghost" data-action="close-modal">关闭</button></div>
+    ${guides.length ? guides.map(g => `<div class="card">${guideCardHTML(g)}</div>`).join('') : '<p class="muted">这个词没有特别难的音，听朗读跟着模仿就行。</p>'}</div>`;
+  m.className = 'on';
+}
+function closeModal() {
+  const m = document.getElementById('modal');
+  if (m) m.className = '';
+}
+
+// ---------- 随手练（像 Quizlet：翻卡片 / 选择题 / 自动播放，不影响打卡） ----------
+let PR = null, prDeck = 'learned', prZhFront = true, prTimer = null;
+function practiceCards(deck) {
+  if (deck === 'learned') return Object.keys(store.progress).map(id => BYID[id]).filter(Boolean);
+  if (deck === 'weak') return Object.entries(store.progress).filter(([, p]) => p.lapseCount > 0 || p.box <= 1).map(([id]) => BYID[id]).filter(Boolean);
+  if (deck === 'all') return CHUNKS.slice();
+  return CHUNKS.filter(c => c.scene === deck);
+}
+function renderPractice() {
+  if (PR) { renderPracticeSession(); return; }
+  const scenes = [...new Set(CHUNKS.map(c => c.scene))];
+  const n = practiceCards(prDeck).length;
+  const opts = [['learned', `已学的（${practiceCards('learned').length}）`], ['weak', `薄弱的（${practiceCards('weak').length}）`], ['all', `全部（${CHUNKS.length}）`], ...scenes.map(s => [s, s])];
+  $app.innerHTML = `<h1>随手练</h1><p class="muted small">像 Quizlet 一样，有空就刷。不影响每日打卡。</p>
+    <div class="card"><h2>练哪些</h2><select id="pr-deck">${opts.map(([v, l]) => `<option value="${esc(v)}" ${v === prDeck ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
+      <div class="seg" style="margin-top:10px"><button data-action="pr-front" data-zh="1" class="${prZhFront ? 'on' : ''}">中文 → 英文</button><button data-action="pr-front" data-zh="0" class="${prZhFront ? '' : 'on'}">英文 → 中文</button></div></div>
+    ${[['cards', '🃏 翻卡片', '点卡片翻面；右滑或 → 认识，左滑或 ← 不认识；不认识的会再出现'], ['quiz', '✅ 选择题', '看中文选英文，四选一，无限连续'], ['auto', '▶️ 自动播放', '自动翻面并朗读，适合通勤、走路时听']]
+      .map(([m, t, d]) => `<button class="step" ${n ? `data-action="pr-start" data-mode="${m}"` : 'disabled'}><span class="grow"><b>${t}</b><span class="muted small">${d}</span></span><span class="muted">›</span></button>`).join('')}
+    ${n ? '' : '<p class="muted small">这个范围里还没有语块。先去「今天」学几个，或者选「全部」。</p>'}`;
+  document.getElementById('pr-deck').addEventListener('change', e => { prDeck = e.target.value; renderPractice(); });
+}
+function startPractice(mode) {
+  const cards = practiceCards(prDeck);
+  PR = { mode, all: cards, deck: shuffle(cards), i: 0, flipped: false, known: 0, unknown: [], round: 1, correct: 0, total: 0, streak: 0, best: 0, paused: false };
+  if (mode === 'quiz') nextQuiz();
+  render();
+  if (mode === 'auto') autoStep();
+}
+function quitPractice() {
+  clearTimeout(prTimer);
+  try { speechSynthesis.cancel(); } catch (e) { /* ignore */ }
+  PR = null;
+}
+function cardFaceHTML(c, flipped) {
+  const front = prZhFront
+    ? `<div class="big">${esc(c.meaning)}</div>${c.replaces ? `<p class="warn">别说 ${esc(c.replaces)}</p>` : ''}`
+    : `<div class="big">${esc(c.phrase)}</div>`;
+  const back = `<div class="big">${esc(c.phrase)}</div><div style="font-size:18px">${esc(c.meaning)}</div><hr>
+    <div><b>${esc(c.example)}</b></div><div class="muted small">${esc(c.exampleZh)}</div><div style="margin-top:8px">${speakBtn(c.phrase)}${speakBtn(c.example, true)}</div>`;
+  return `<div class="fcard ${flipped ? 'flipped' : ''}" data-action="pr-flip" id="fcard">${kindTag(c)}<div style="margin-top:12px">${flipped ? back : front}</div>
+    ${flipped ? '' : '<p class="muted small" style="margin-top:24px">点一下翻面（空格键）</p>'}</div>`;
+}
+function renderPracticeSession() {
+  const top = `<div class="topbar"><button class="ghost" data-action="pr-exit">结束</button><b>${{ cards: '翻卡片', quiz: '选择题', auto: '自动播放' }[PR.mode]}</b><span></span></div>`;
+  if (PR.mode === 'cards') {
+    if (PR.i >= PR.deck.length) {
+      $app.innerHTML = `${top}<div class="center" style="margin-top:40px"><div style="font-size:56px">${PR.unknown.length ? '🗂' : '⭐'}</div>
+        <h1>${PR.unknown.length ? '这一轮练完了' : '这一轮全认识！'}</h1><p class="muted">认识 ${PR.known} · 不认识 ${PR.unknown.length}</p></div>
+        <div class="controls">${PR.unknown.length ? `<button class="primary" data-action="pr-again" data-which="unknown">只练不认识的（${PR.unknown.length}）</button>` : ''}
+        <button class="link" data-action="pr-again" data-which="all">全部再来一轮</button></div>`;
+      return;
+    }
+    const c = PR.deck[PR.i];
+    $app.innerHTML = `${top}<div class="row small"><span class="grow">第 ${PR.round} 轮 · ${PR.i + 1}/${PR.deck.length}</span>
+      <span class="result-ok">认识 ${PR.known}</span>&nbsp;<span class="result-no">不认识 ${PR.unknown.length}</span></div>
+      ${cardFaceHTML(c, PR.flipped)}
+      <div class="row" style="gap:12px"><button class="ghost grow" style="color:var(--red)" data-action="pr-no">✗ 不认识</button>
+        <button class="primary grow" style="background:var(--green)" data-action="pr-yes">✓ 认识</button></div>`;
+    attachSwipe();
+  } else if (PR.mode === 'quiz') {
+    const q = PR.q;
+    $app.innerHTML = `${top}<div class="row small"><span class="grow" style="color:var(--orange)">🔥 连对 ${PR.streak}</span><span class="muted">最高 ${PR.best} · 正确 ${PR.correct}/${PR.total}</span></div>
+      <div class="center" style="margin:24px 0"><div class="big">${esc(q.meaning)}</div>${q.replaces ? `<p class="warn">别说 ${esc(q.replaces)}</p>` : ''}</div>
+      ${PR.options.map(o => {
+        let cls = '';
+        if (PR.picked) { if (o.id === q.id) cls = 'right'; else if (o.id === PR.picked) cls = 'wrong'; }
+        return `<button class="option ${cls}" data-action="pr-pick" data-id="${o.id}" ${PR.picked ? 'disabled' : ''}>${esc(o.phrase)}</button>`;
+      }).join('')}
+      ${PR.picked ? `<p class="center small"><b>${esc(q.example)}</b><br><span class="muted">${esc(q.exampleZh)}</span></p>` : ''}`;
+  } else {
+    const c = PR.deck[PR.i];
+    $app.innerHTML = `${top}<p class="muted small center">${PR.i + 1}/${PR.deck.length} · 先想一想，3 秒后自动翻面并朗读</p>${cardFaceHTML(c, PR.flipped)}
+      <div class="row" style="gap:12px"><button class="ghost grow" data-action="pr-step" data-d="-1">⏮</button>
+        <button class="primary grow" data-action="pr-pause">${PR.paused ? '▶ 继续' : '⏸ 暂停'}</button>
+        <button class="ghost grow" data-action="pr-step" data-d="1">⏭</button></div>`;
+  }
+}
+function cardAnswer(ok) {
+  if (!PR || PR.i >= PR.deck.length) return;
+  if (ok) PR.known++; else PR.unknown.push(PR.deck[PR.i]);
+  PR.i++;
+  PR.flipped = false;
+  render();
+}
+function attachSwipe() {
+  const el = document.getElementById('fcard');
+  if (!el) return;
+  let x0 = null;
+  el.addEventListener('pointerdown', e => { x0 = e.clientX; });
+  el.addEventListener('pointermove', e => {
+    if (x0 == null) return;
+    const dx = e.clientX - x0;
+    el.style.transform = `translateX(${dx}px) rotate(${dx / 25}deg)`;
+    el.style.boxShadow = dx > 40 ? '0 0 0 3px var(--green)' : dx < -40 ? '0 0 0 3px var(--red)' : '';
+  });
+  el.addEventListener('pointerup', e => {
+    if (x0 == null) return;
+    const dx = e.clientX - x0;
+    x0 = null;
+    if (Math.abs(dx) > 100) { PR.swiped = true; cardAnswer(dx > 0); }
+    else { el.style.transform = ''; el.style.boxShadow = ''; }
+  });
+}
+function nextQuiz() {
+  const prev = PR.q && PR.q.id;
+  const pool = PR.all.length > 1 ? PR.all.filter(c => c.id !== prev) : PR.all;
+  const q = pool[Math.floor(Math.random() * pool.length)];
+  // 干扰项优先选同场景、同类型的
+  const sameKind = CHUNKS.filter(c => c.kind === q.kind && c.id !== q.id);
+  const cands = shuffle(sameKind.filter(c => c.scene === q.scene)).concat(shuffle(sameKind));
+  const d = [];
+  for (const c of cands) { if (!d.find(x => x.id === c.id)) d.push(c); if (d.length === 3) break; }
+  PR.q = q;
+  PR.options = shuffle(d.concat([q]));
+  PR.picked = null;
+}
+function quizPick(id) {
+  if (PR.picked) return;
+  PR.picked = id;
+  PR.total++;
+  const ok = id === PR.q.id;
+  if (ok) { PR.correct++; PR.streak++; PR.best = Math.max(PR.best, PR.streak); } else PR.streak = 0;
+  speak(PR.q.phrase);
+  render();
+  prTimer = setTimeout(() => { if (PR && PR.mode === 'quiz') { nextQuiz(); render(); } }, ok ? 1200 : 2500);
+}
+function autoStep() {
+  clearTimeout(prTimer);
+  if (!PR || PR.mode !== 'auto' || PR.paused) return;
+  const c = PR.deck[PR.i];
+  PR.flipped = false;
+  render();
+  if (!prZhFront) speak(c.phrase);
+  prTimer = setTimeout(() => {
+    if (!PR || PR.paused) return;
+    PR.flipped = true;
+    render();
+    speak(`${c.phrase}. ${c.example}`);
+    const n = c.example.split(' ').length + c.phrase.split(' ').length;
+    prTimer = setTimeout(() => { if (PR && !PR.paused) autoMove(1); }, (2.5 + n * 0.45) * 1000);
+  }, 3000);
+}
+function autoMove(d) {
+  clearTimeout(prTimer);
+  try { speechSynthesis.cancel(); } catch (e) { /* ignore */ }
+  const n = PR.i + d;
+  if (n >= PR.deck.length) { PR.deck = shuffle(PR.deck); PR.i = 0; } else PR.i = Math.max(0, n);
+  autoStep();
+}
+
 // ---------- 事件 ----------
 document.addEventListener('click', e => {
+  if (e.target.id === 'modal') { closeModal(); return; }
   const el = e.target.closest('[data-action]');
   if (!el) return;
   const a = el.dataset.action;
-  if (a === 'tab') { tab = el.dataset.tab; $app.innerHTML = ''; render(); }
+  if (a === 'tab') { if (PR) quitPractice(); tab = el.dataset.tab; $app.innerHTML = ''; render(); }
+  else if (a === 'word') openWord(el.dataset.word);
+  else if (a === 'close-modal') closeModal();
+  else if (a === 'pr-start') startPractice(el.dataset.mode);
+  else if (a === 'pr-front') { prZhFront = el.dataset.zh === '1'; renderPractice(); }
+  else if (a === 'pr-exit') { quitPractice(); render(); }
+  else if (a === 'pr-flip') {
+    if (PR.swiped) { PR.swiped = false; return; }
+    PR.flipped = !PR.flipped;
+    if (PR.flipped) speak(PR.deck[PR.i].phrase);
+    render();
+  }
+  else if (a === 'pr-yes') cardAnswer(true);
+  else if (a === 'pr-no') cardAnswer(false);
+  else if (a === 'pr-again') {
+    const cards = el.dataset.which === 'unknown' ? PR.unknown : PR.all;
+    Object.assign(PR, { deck: shuffle(cards), i: 0, known: 0, unknown: [], flipped: false, round: PR.round + 1 });
+    render();
+  }
+  else if (a === 'pr-pick') quizPick(el.dataset.id);
+  else if (a === 'pr-step') autoMove(+el.dataset.d);
+  else if (a === 'pr-pause') {
+    PR.paused = !PR.paused;
+    if (PR.paused) { clearTimeout(prTimer); try { speechSynthesis.cancel(); } catch (err) { /* ignore */ } render(); }
+    else autoStep();
+  }
   else if (a === 'start') startSession(el.dataset.mode);
   else if (a === 'speak') speak(el.dataset.text, !!el.dataset.slow);
   else if (a === 'speak-part') speak(el.dataset.text, true);
@@ -914,6 +1142,12 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.id === 'typed') submitTyped();
+  if (e.key === 'Escape') closeModal();
+  if (PR && PR.mode === 'cards' && PR.i < PR.deck.length && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) {
+    if (e.key === ' ') { e.preventDefault(); PR.flipped = !PR.flipped; if (PR.flipped) speak(PR.deck[PR.i].phrase); render(); }
+    else if (e.key === 'ArrowRight') cardAnswer(true);
+    else if (e.key === 'ArrowLeft') cardAnswer(false);
+  }
 });
 
 function exportData() {
@@ -939,8 +1173,10 @@ function interleave(fillers, phrasals) {
 Promise.all([
   fetch('../StudyEN/Resources/chunks.json').then(r => r.json()),
   fetch('../StudyEN/Resources/word_order.json').then(r => r.json()),
+  fetch('../StudyEN/Resources/pronunciation.json').then(r => r.json()),
 ])
-  .then(([data, drills]) => {
+  .then(([data, drills, pron]) => {
+    PRON = pron;
     DRILLS = drills;
     drills.forEach(d => { DRILL_BYID[d.id] = d; });
     CHUNKS = data;
