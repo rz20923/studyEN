@@ -31,6 +31,8 @@ function defaultStore() {
   return {
     progress: {},
     drills: {}, // 语序造句：id -> { date, firstTry }
+    endurance: [], // 耐力训练记录
+    stuck: [], // 卡壳本
     days: {},
     phaseExam: { passed: false, bestScore: 0, attempts: 0, lastAttemptDay: null },
     dev: { offsetDays: 0, typeMode: false },
@@ -297,7 +299,13 @@ function dailyState() {
   s.learnDone = s.newChunks.length === 0;
   s.drillDone = s.newDrills.length === 0;
   s.reviewDone = s.due.length === 0;
-  s.examReady = s.learnDone && s.drillDone && s.reviewDone && s.allLearned.length > 0;
+  const sets = store.endurance || [];
+  s.enduranceTarget = enduranceTarget(s.trainingDay);
+  s.enduranceBest = Math.max(0, ...sets.filter(x => isToday(x.date)).map(x => x.seconds));
+  s.enduranceBestEver = Math.max(0, ...sets.map(x => x.seconds));
+  s.enduranceDone = s.enduranceBest >= s.enduranceTarget;
+  s.strengthDone = s.reviewDone && s.learnDone && s.drillDone;
+  s.examReady = s.strengthDone && s.enduranceDone && s.allLearned.length > 0;
   s.phaseAttemptedToday = isToday(pe.lastAttemptDay);
   return s;
 }
@@ -311,6 +319,7 @@ const kindTag = c => `<span class="tag ${c.kind}">${c.kind === 'phrasal' ? '短�
 const speakBtn = (text, slow) => `<button class="icon-btn" data-action="speak" data-text="${esc(text)}" ${slow ? 'data-slow="1"' : ''} title="${slow ? '慢速朗读' : '朗读'}">${slow ? '🐢' : '🔊'}</button>`;
 
 function render() {
+  if (E) { $tabs.innerHTML = ''; renderEndurance(); return; }
   if (S) { $tabs.innerHTML = ''; renderSession(); return; }
   $tabs.innerHTML = [['today', '今天'], ['practice', '随手练'], ['library', '语块库'], ['stats', '进度'], ['dev', '测试工具']]
     .map(([k, label]) => `<button data-action="tab" data-tab="${k}" class="${tab === k ? 'on' : ''}">${label}</button>`).join('');
@@ -355,13 +364,13 @@ function renderToday() {
     const rule = `全部 ${s.allLearned.length} 个语块限时回想，≥ ${pct(PLAN.phaseExamPassRate)}% 通关`;
     const best = pe.attempts ? ` · 已考 ${pe.attempts} 次，最高 ${pct(pe.bestScore)}%` : '';
     const detail = (s.reviewDone ? rule : `先复习错题 · ${rule}`) + best;
-    step3 = stepHTML(4, '第一阶段总考', detail, s.reviewDone ? 'active' : 'locked', 'phaseExam');
+    step3 = stepHTML(5, '第一阶段总考', detail, s.reviewDone && s.enduranceDone ? 'active' : 'locked', 'phaseExam');
   } else {
     const line = `正确率 ≥ ${pct(PLAN.examPassRate)}% 才能打卡`;
     const today = s.today || {};
     const detail = s.checkedIn ? `已打卡 · 正确率 ${pct(today.examScore)}%`
       : today.examAttempts ? `${line} · 已挑战 ${today.examAttempts} 次，最高 ${pct(today.examScore)}%` : line;
-    step3 = stepHTML(4, '每日闯关', detail, s.checkedIn ? 'done' : s.examReady ? 'active' : 'locked', 'exam');
+    step3 = stepHTML(5, '达标测试 · 每日闯关', detail, s.checkedIn ? 'done' : s.examReady ? 'active' : 'locked', 'exam');
   }
 
   const roadmap = PLAN.phases.map(([a, b, title]) => {
@@ -385,16 +394,18 @@ function renderToday() {
     <div class="tiles">
       <div class="tile"><b style="color:var(--green)">${s.checkedInDays}</b><span class="muted small">达标天数</span></div>
       <div class="tile"><b style="color:var(--orange)">${s.streak}</b><span class="muted small">连续达标</span></div>
-      <div class="tile"><b style="color:var(--blue)">${s.quota}</b><span class="muted small">今日新语块</span></div>
+      <div class="tile"><b style="color:var(--blue)">${secText(s.enduranceBestEver)}</b><span class="muted small">最长开口</span></div>
     </div>
     ${encourage}
-    ${stepHTML(1, '学新语块', learnDetail, s.learnDone ? 'done' : 'active', 'learn')}
-    ${stepHTML(2, '语序造句', drillDetail, s.drillDone ? 'done' : s.learnDone ? 'active' : 'locked', 'order')}
-    ${stepHTML(3, '开口复习', reviewDetail, s.reviewDone ? 'done' : s.learnDone && s.drillDone ? 'active' : 'locked', 'review')}
+    ${stepHTML(1, '热身 · 开口复习', reviewDetail, s.reviewDone ? 'done' : 'active', 'review')}
+    ${stepHTML(2, '力量 · 学新语块', learnDetail, s.learnDone ? 'done' : s.reviewDone ? 'active' : 'locked', 'learn')}
+    ${stepHTML(3, '力量 · 语序造句', drillDetail, s.drillDone ? 'done' : s.reviewDone && s.learnDone ? 'active' : 'locked', 'order')}
+    ${stepHTML(4, '耐力 · 连续开口', enduranceDetail(s), s.enduranceDone ? 'done' : s.strengthDone ? 'active' : 'locked', 'endurance')}
     ${step3}
     <div class="card"><h2>180 天路线</h2><p class="muted small">只算达标打卡的天数。没达标的日子不算，计划不会往前走。</p>${roadmap}</div>
     <div class="card"><h2>达标规则</h2><ul class="rules">
-      <li>四步必须按顺序完成，前一步没过，后一步锁定</li>
+      <li>像健身课一样按顺序练：热身 → 力量 → 耐力 → 达标测试，前一步没过，后一步锁定</li>
+      <li>耐力：连续开口时长从 10 秒逐步加到 5 分钟，说够才达标</li>
       <li>语序造句：按「主 → 谓 → 宾 → 方式 → 地点 → 时间」说，${ORDER_RULE}</li>
       <li>全程开口说，由语音识别判定，不能自己点“会了”</li>
       <li>闯关每题限时 ${PLAN.examAnswerSeconds} 秒；正确率低于 ${pct(PLAN.examPassRate)}%：错题打回复习，复习完重考</li>
@@ -410,6 +421,7 @@ const MODE_TITLE = { learn: '学新语块', order: '语序造句', review: '开�
 function startSession(mode) {
   const s = dailyState();
   let chunks;
+  if (mode === 'endurance') { startEndurance(); return; }
   if (mode === 'learn') chunks = s.newChunks;
   else if (mode === 'order') chunks = s.newDrills;
   else if (mode === 'review') chunks = s.due;
@@ -693,7 +705,7 @@ function renderSession() {
   }
   if (!c) {
     $app.innerHTML = `${top}<div class="center" style="margin-top:48px"><div style="font-size:56px">✅</div><h1>这一步完成了</h1>
-      <p class="muted">${S.mode === 'learn' ? '下一步：语序造句' : `下一步：每日闯关，正确率 ≥ ${pct(PLAN.examPassRate)}% 才能打卡`}</p></div>
+      <p class="muted">${S.mode === 'learn' ? '下一步：语序造句' : S.mode === 'review' ? '下一步：学新语块' : S.mode === 'order' ? '下一步：耐力训练（连续开口）' : '下一步：达标测试'}</p></div>
       <div class="controls"><button class="primary" data-action="exit">返回</button></div>`;
     return;
   }
@@ -835,6 +847,7 @@ function renderStats() {
       <div class="tile"><b style="color:var(--green)">${mastered}</b><span class="muted small">已掌握</span></div>
       <div class="tile"><b style="color:var(--orange)">${pct(avg)}%</b><span class="muted small">闯关均分</span></div>
     </div>
+    ${enduranceStatsHTML()}
     <div class="card"><h2>语序造句</h2><p class="muted small">已练 ${Object.keys(store.drills).length} / ${DRILLS.length} 句，
       一次说对 ${Object.values(store.drills).filter(d => d.firstTry).length} 句。一次说对的比例越高，说明语序越成为本能。</p></div>
     <div class="card"><h2>180 天达标进度 · ${checked.length} / ${PLAN.totalDays}</h2><div class="grid180">${grid}</div>
@@ -876,6 +889,8 @@ function devAutoDay() {
   });
   s.due.forEach(c => applySRS('good', store.progress[c.id]));
   s.newDrills.forEach(d => { store.drills[d.id] = { date: t, firstTry: true }; });
+  store.endurance.push({ id: 'e' + t, date: t, day: s.trainingDay, topic: topicFor(s.trainingDay).zh, target: s.enduranceTarget,
+    seconds: s.enduranceTarget, pauses: 0, words: 0, chunksUsed: 0, passed: true, audioId: null, milestone: false, transcript: '' });
   const d = studyDay();
   d.newLearned += s.newChunks.length;
   d.reviews += s.due.length;
@@ -1088,6 +1103,332 @@ function autoMove(d) {
   autoStep();
 }
 
+// ---------- 耐力训练（口语健身房） ----------
+const ENDURANCE = { voiceDB: -42, pause: 3, stop: 8 };
+// 第 day 个达标日的目标开口秒数：10 秒 → 5 分钟（与 iOS 版 Endurance.target 一致）
+function enduranceTarget(day) {
+  const d = Math.min(Math.max(day, 1), PLAN.totalDays);
+  return Math.round((10 + 290 * Math.pow((d - 1) / (PLAN.totalDays - 1), 1.3)) / 5) * 5;
+}
+const isMilestone = day => day === 1 || day % 30 === 0;
+const secText = sec => { const t = Math.round(sec); return t < 60 ? `${t} 秒` : `${Math.floor(t / 60)} 分 ${t % 60} 秒`; };
+const MILESTONE_TOPIC = { zh: '自我介绍：你叫什么、做什么工作、住在哪、平时喜欢做什么', starters: ['Hi, I\'m…', 'I work as… / I\'m a…', 'I live in…', 'In my free time, I like to…'] };
+const TOPICS = [
+  ['说说你今天早上从起床到出门都做了什么', 'I woke up at…|Then I…|After that…'],
+  ['介绍你住的地方：城市、房子、周围有什么', 'I live in…|There\'s a … near my place|I like it because…'],
+  ['你的工作或学习是做什么的？每天大概怎么过', 'I work as…|Every day I…|The best part is…'],
+  ['说说你昨天晚上吃了什么', 'Last night I had…|It was…|I usually…'],
+  ['你周末一般怎么过', 'On weekends I usually…|Sometimes I…|Last weekend I…'],
+  ['介绍一个你的好朋友', 'My friend … is…|We met…|We usually…'],
+  ['最近一件让你烦的事', 'The thing is…|It drives me crazy when…|In the end…'],
+  ['你怎么去上班或上学，路上做什么', 'I go to work by…|It takes about…|On the way I…'],
+  ['你最喜欢的一家餐厅或一种小吃', 'My favorite place is…|They have…|You should try…'],
+  ['你最近在看的剧或电影', 'I\'ve been watching…|It\'s about…|I like it because…'],
+  ['描述你现在所在的房间，你看到了什么', 'Right now I\'m in…|There\'s a…|Next to it…'],
+  ['说说你的爱好，是怎么开始的', 'I\'m really into…|I started when…|It helps me…'],
+  ['最近一次出去玩或旅行的经历', 'Last time I went to…|We…|The best part was…'],
+  ['你今天接下来的计划', 'Today I\'m gonna…|First…|Later I might…'],
+  ['讲一件你最近遇到的趣事', 'So get this…|All of a sudden…|It turns out…'],
+  ['介绍你的家人', 'There are … people in my family|My mom…|We usually…'],
+  ['你小时候最喜欢做什么', 'When I was a kid, I used to…|I remember…|Now I…'],
+  ['你平时怎么购物：网上还是线下', 'I usually shop…|Last time I bought…|I always shop around…'],
+  ['你怎么放松、怎么解压', 'When I\'m stressed out, I…|It helps me chill out|Sometimes I…'],
+  ['介绍你的家乡', 'I\'m from…|It\'s famous for…|If you go there, you should…'],
+  ['你最近学到的一样新东西', 'I recently learned…|At first…|Now I can…'],
+  ['描述你理想中的周末', 'My perfect weekend would be…|I\'d sleep in…|Then I\'d…'],
+  ['你最近买的一样东西，值不值', 'I just bought…|It was…|To be honest…'],
+  ['说说你的运动习惯', 'I work out…|I try to…|I should…'],
+  ['你遇到过最尴尬的一件事', 'You won\'t believe this…|I totally messed up…|Now I laugh about it'],
+  ['你手机里最常用的三个 App', 'I use … every day|I mostly use it to…|I can\'t live without…'],
+  ['你最近一次生病或特别累是什么情况', 'I came down with…|I felt…|It took me a while to get over it'],
+  ['你未来一年想做的三件事', 'This year I want to…|I\'m planning to…|I\'m also thinking about…'],
+  ['给外国朋友推荐你所在城市值得去的地方', 'You should definitely check out…|It\'s great for…|Don\'t miss…'],
+  ['说说你和同事或同学之间的一件事', 'One of my coworkers…|We get along…|The other day…'],
+  ['你喜欢什么样的天气，为什么', 'I prefer…|When it\'s…, I…|I can\'t stand…'],
+  ['你做过最好的一个决定', 'The best decision I made was…|At first I…|It turned out…'],
+  ['描述一顿难忘的饭', 'I\'ll never forget…|We had…|It was so good that…'],
+  ['如果有一个月的假期，你会做什么', 'If I had a month off, I\'d…|First I\'d…|I\'d also…'],
+  ['说说你最近的心情和原因', 'I\'ve been feeling…|Mostly because…|I guess…'],
+  ['你怎么看在家工作', 'Personally, I think…|The good thing is…|The bad thing is…'],
+  ['你最近一次和朋友聚会做了什么', 'Last time we got together, we…|We ended up…|It was…'],
+  ['你学英语的原因和最大的困难', 'I\'m learning English because…|The hardest part is…|I\'m trying to…'],
+  ['描述一个你常去的地方', 'I often go to…|It\'s a … place|I like to … there'],
+  ['说一个你想改掉的习惯', 'I\'m trying to cut down on…|I used to…|Now I…'],
+].map(([zh, s]) => ({ zh, starters: s.split('|') }));
+const topicFor = day => (isMilestone(day) ? MILESTONE_TOPIC : TOPICS[(Math.max(day, 1) - 1) % TOPICS.length]);
+
+function enduranceDetail(s) {
+  const goal = `围绕一个生活话题连续开口 ${secText(s.enduranceTarget)}`;
+  if (s.enduranceDone) return `已达标 · 今天最长 ${secText(s.enduranceBest)}`;
+  const flag = isMilestone(s.trainingDay) ? ' · 今天有里程碑录音' : '';
+  return (s.enduranceBest > 0 ? `${goal} · 今天最长 ${secText(s.enduranceBest)}` : goal) + flag;
+}
+// 卡壳本：用中文关键词在语块库里找现成说法
+function stuckMatches(text) {
+  const q = (text || '').trim();
+  if (!q) return [];
+  return CHUNKS.filter(c => c.meaning.split(/[；;，,、（）()…/ ]+/).filter(k => k.length >= 2).some(k => q.includes(k))
+    || c.phrase.toLowerCase().includes(q.toLowerCase())).slice(0, 5);
+}
+
+// 录音存在浏览器的 IndexedDB 里
+function idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('studyen-audio', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('audio');
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function saveAudio(id, blob) {
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('audio', 'readwrite');
+    tx.objectStore('audio').put(blob, id);
+    tx.oncomplete = res;
+    tx.onerror = () => rej(tx.error);
+  });
+}
+async function loadAudio(id) {
+  const db = await idb();
+  return new Promise(res => {
+    const rq = db.transaction('audio').objectStore('audio').get(id);
+    rq.onsuccess = () => res(rq.result);
+    rq.onerror = () => res(null);
+  });
+}
+let audioPlayer = null, playingId = null;
+async function togglePlay(id) {
+  if (audioPlayer) { audioPlayer.pause(); audioPlayer = null; }
+  if (playingId === id) { playingId = null; render(); return; }
+  const blob = await loadAudio(id).catch(() => null);
+  if (!blob) return;
+  audioPlayer = new Audio(URL.createObjectURL(blob));
+  playingId = id;
+  audioPlayer.onended = () => { playingId = null; audioPlayer = null; render(); };
+  audioPlayer.play();
+  render();
+}
+const playBtn = (id, label) => `<button class="ghost" data-action="e-play" data-id="${id}">${playingId === id ? '⏹ 停止' : `▶ ${label}`}</button>`;
+
+let E = null, mic = null;
+function startEndurance() {
+  const s = dailyState();
+  const recent = Object.entries(store.progress).sort((a, b) => b[1].introduced - a[1].introduced).slice(0, 3).map(([id]) => BYID[id]).filter(Boolean);
+  E = { phase: 'intro', day: s.trainingDay, topic: topicFor(s.trainingDay), target: s.enduranceTarget, milestone: isMilestone(s.trainingDay), recent, stuckText: '', stuckSaved: [] };
+  render();
+}
+async function enduranceStart() {
+  if (store.dev.typeMode) { E.phase = 'type'; render(); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const ctx = new AudioContext();
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 2048;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+    const mr = new MediaRecorder(stream);
+    const parts = [];
+    mr.ondataavailable = e => parts.push(e.data);
+    mr.start();
+    Object.assign(E, { phase: 'rec', seconds: 0, pauses: 0, silence: 0, hasSpoken: false, level: 0, transcript: '', error: null });
+    const buf = new Float32Array(analyser.fftSize);
+    let last = performance.now();
+    const timer = setInterval(() => {
+      analyser.getFloatTimeDomainData(buf);
+      let sum = 0;
+      for (const v of buf) sum += v * v;
+      const db = 20 * Math.log10(Math.max(Math.sqrt(sum / buf.length), 1e-7));
+      const t = performance.now();
+      enduranceTick(db, (t - last) / 1000);
+      last = t;
+      updateEnduranceUI();
+    }, 100);
+    let sr = null;
+    if (SR) {
+      sr = new SR();
+      sr.lang = 'en-US';
+      sr.continuous = true;
+      sr.interimResults = true;
+      let done = '';
+      sr.onresult = e => {
+        E.transcript = `${done} ${Array.from(e.results).map(r => r[0].transcript).join(' ')}`.replace(/\s+/g, ' ').trim();
+      };
+      // 浏览器的识别会话会自动断开，录音期间自动续上
+      sr.onend = () => { if (mic && mic.sr === sr) { done = E.transcript; try { sr.start(); } catch (err) { /* ignore */ } } };
+      try { sr.start(); } catch (err) { /* ignore */ }
+    }
+    mic = { stream, ctx, timer, mr, parts, sr };
+    render();
+  } catch (err) {
+    E.error = `拿不到麦克风：${err.message}。也可以在「测试工具」里打开“键盘代替说话”。`;
+    render();
+  }
+}
+function enduranceTick(db, dt) {
+  E.level = Math.max(0, Math.min(1, (db + 60) / 50));
+  if (db > ENDURANCE.voiceDB) {
+    E.hasSpoken = true;
+    E.silence = 0;
+    E.seconds += dt;
+  } else if (E.hasSpoken) {
+    const before = E.silence;
+    E.silence += dt;
+    if (E.silence <= ENDURANCE.pause) E.seconds += dt;
+    else if (before <= ENDURANCE.pause) { E.seconds = Math.max(0, E.seconds - ENDURANCE.pause); E.pauses++; }
+    if (E.silence > ENDURANCE.stop) enduranceFinish();
+  }
+}
+function updateEnduranceUI() {
+  if (!E || E.phase !== 'rec') return;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('e-sec', Math.floor(E.seconds));
+  set('e-pauses', `卡壳 ${E.pauses}`);
+  set('e-words', `${words(E.transcript).length} 个词`);
+  set('e-transcript', E.transcript);
+  set('e-hint', !E.hasSpoken ? '开始说吧，计时从你开口算起' : E.silence > ENDURANCE.pause ? '卡住了？先说 Let me think… 撑住！' : '');
+  const lv = document.getElementById('e-level');
+  if (lv) lv.style.width = `${E.level * 100}%`;
+  const ring = document.getElementById('e-ring');
+  if (ring) {
+    ring.setAttribute('stroke-dashoffset', String(578 * (1 - Math.min(1, E.seconds / E.target))));
+    ring.setAttribute('stroke', E.seconds >= E.target ? 'var(--green)' : 'var(--blue)');
+  }
+}
+async function enduranceFinish() {
+  if (!mic) return;
+  const m = mic;
+  mic = null;
+  clearInterval(m.timer);
+  try { if (m.sr) m.sr.abort(); } catch (err) { /* ignore */ }
+  const blob = await new Promise(res => { m.mr.onstop = () => res(new Blob(m.parts, { type: m.mr.mimeType })); m.mr.stop(); });
+  m.stream.getTracks().forEach(t => t.stop());
+  m.ctx.close();
+  const id = `rec-${Date.now()}`;
+  let saved = false;
+  if (E.hasSpoken) saved = await saveAudio(id, blob).then(() => true).catch(() => false);
+  recordEnduranceSet(E.seconds, E.pauses, E.transcript, saved ? id : null);
+}
+function enduranceCancel() {
+  if (mic) {
+    const m = mic;
+    mic = null;
+    clearInterval(m.timer);
+    try { if (m.sr) m.sr.abort(); } catch (err) { /* ignore */ }
+    try { m.mr.stop(); } catch (err) { /* ignore */ }
+    m.stream.getTracks().forEach(t => t.stop());
+    m.ctx.close();
+  }
+  if (audioPlayer) { audioPlayer.pause(); audioPlayer = null; playingId = null; }
+  E = null;
+}
+function recordEnduranceSet(seconds, pauses, transcript, audioId) {
+  const heard = words(transcript);
+  // 用上的语块：至少两个词、并且基本连在一起出现才算
+  const used = CHUNKS.filter(c => c.phrase.split('/').some(alt => { const w = words(alt); return w.length >= 2 && findSegment(heard, w) >= 0; })).length;
+  const set = { id: `e${Date.now()}`, date: now(), day: E.day, topic: E.topic.zh, target: E.target, seconds, pauses, words: heard.length,
+    chunksUsed: used, passed: seconds >= E.target, audioId, milestone: E.milestone, transcript };
+  store.endurance.push(set);
+  saveStore();
+  E.phase = 'result';
+  E.result = set;
+  render();
+}
+
+function renderEndurance() {
+  const top = `<div class="topbar"><button class="ghost" data-action="e-exit">退出</button><b>耐力训练</b><span></span></div>`;
+  const t = E.topic;
+  if (E.phase === 'intro') {
+    $app.innerHTML = `${top}
+      ${E.milestone ? `<p style="color:var(--orange);font-weight:700">🚩 ${E.day === 1 ? '里程碑录音：这是你的起点，之后每 30 天用同一个题目再录一次' : '里程碑录音：和第 1 天的自己对比一下'}</p>` : ''}
+      <p class="muted small" style="margin-bottom:0">今天的话题</p><h1 style="font-size:24px">${esc(t.zh)}</h1>
+      <div class="tiles" style="grid-template-columns:1fr 1fr"><div class="tile"><b style="color:var(--blue)">${secText(E.target)}</b><span class="muted small">目标开口时长</span></div>
+        <div class="tile"><b style="color:var(--green)">第 ${E.day} 天</b><span class="muted small">训练进度</span></div></div>
+      <div class="card"><h2>可以这样开头</h2>${t.starters.map(x => `<span class="chip">${esc(x)}</span>`).join('')}
+        ${E.recent.length ? `<h2 style="margin-top:14px">试着用上最近学的语块</h2>${E.recent.map(c => `<span class="chip p">${esc(c.phrase)}</span>`).join('')}` : ''}</div>
+      <div class="card"><h2>规则</h2><ul class="rules">
+        <li>只算你开口的时间，${ENDURANCE.pause} 秒以内的换气停顿也算</li>
+        <li>停顿超过 ${ENDURANCE.pause} 秒记一次卡壳，超过 ${ENDURANCE.stop} 秒自动结束</li>
+        <li>卡住了别停：用 Let me think… / How should I put it… 撑住，或者用最简单的英文绕过去</li></ul></div>
+      ${E.error ? `<p class="warn">${esc(E.error)}</p>` : ''}
+      <div class="controls"><button class="primary" data-action="e-start">🎤 开始说</button></div>`;
+    return;
+  }
+  if (E.phase === 'type') {
+    $app.innerHTML = `${top}<h2>${esc(t.zh)}</h2><p class="muted small">键盘模式：输入你要说的一段英文，按每个词约 0.4 秒估算开口时长（目标 ${secText(E.target)} ≈ ${Math.ceil(E.target / 0.4)} 个词）。</p>
+      <textarea id="e-typed" placeholder="Type what you would say…"></textarea>
+      <div class="controls"><button class="primary" data-action="e-type-submit">提交</button></div>`;
+    return;
+  }
+  if (E.phase === 'rec') {
+    $app.innerHTML = `${top}<p class="center" style="font-weight:700">${esc(t.zh)}</p>
+      <svg class="ring" width="200" height="200" viewBox="0 0 200 200"><circle cx="100" cy="100" r="92" fill="none" stroke="var(--card-2)" stroke-width="14"/>
+        <circle id="e-ring" cx="100" cy="100" r="92" fill="none" stroke="var(--blue)" stroke-width="14" stroke-linecap="round"
+          stroke-dasharray="578" stroke-dashoffset="578" transform="rotate(-90 100 100)"/></svg>
+      <div class="ring-num"><b id="e-sec">0</b><div class="muted">/ ${E.target} 秒</div></div>
+      <div class="level"><i id="e-level"></i></div>
+      <p class="center small muted"><span id="e-pauses">卡壳 0</span> · <span id="e-words">0 个词</span></p>
+      <p class="center" style="color:var(--orange);font-weight:700;min-height:1.4em" id="e-hint">开始说吧，计时从你开口算起</p>
+      <p class="heard small" id="e-transcript"></p>
+      <div class="controls"><button class="primary" data-action="e-stop">说完了</button></div>`;
+    return;
+  }
+  // 结果
+  const r = E.result;
+  const first = (store.endurance || []).find(x => x.milestone && x.id !== r.id);
+  const matches = stuckMatches(E.stuckText);
+  $app.innerHTML = `${top}
+    <div class="center"><div style="font-size:52px">${r.passed ? '✅' : '🔥'}</div>
+      <h1 style="font-size:24px">${r.passed ? '耐力达标！' : `还差 ${Math.ceil(r.target - r.seconds)} 秒，再来一组`}</h1></div>
+    <div class="grid2">
+      <div class="tile"><b style="color:var(--blue);font-size:20px">${secText(r.seconds)}</b><span class="muted small">开口时长 / 目标 ${r.target} 秒</span></div>
+      <div class="tile"><b style="color:var(--orange)">${r.pauses}</b><span class="muted small">卡壳次数</span></div>
+      <div class="tile"><b style="color:var(--purple)">${r.words}</b><span class="muted small">说了多少个词</span></div>
+      <div class="tile"><b style="color:var(--green)">${r.chunksUsed}</b><span class="muted small">用上的语块</span></div></div>
+    ${r.audioId ? `<p>${playBtn(r.audioId, '听听刚才的自己')}</p>` : ''}
+    ${r.milestone && first ? `<div class="card" style="background:color-mix(in srgb, var(--orange) 10%, var(--card))"><h2>和第 ${first.day} 天对比</h2>
+      <p class="small muted">开口 ${secText(first.seconds)} → ${secText(r.seconds)}，卡壳 ${first.pauses} → ${r.pauses} 次</p>${first.audioId ? playBtn(first.audioId, `听第 ${first.day} 天的录音`) : ''}</div>` : ''}
+    <div class="card"><h2>卡壳本</h2><p class="small muted">刚才哪里想说却说不出？用中文记下来，先在语块库里帮你找现成说法。</p>
+      <div class="row"><input type="text" id="e-stuck" class="grow" placeholder="比如：我想说“推迟会议”" value="${esc(E.stuckText)}"><button class="ghost" data-action="e-stuck-save">记下</button></div>
+      <div id="e-matches">${stuckMatchesHTML(matches, E.stuckText)}</div>
+      ${E.stuckSaved.map(x => `<div class="small">🔖 ${esc(x)}</div>`).join('')}</div>
+    ${r.transcript ? `<div class="small muted">识别到你说的</div><p class="heard">${esc(r.transcript)}</p>` : ''}
+    <div class="controls"><div class="row" style="gap:12px"><button class="ghost grow" data-action="e-again">再来一组</button>
+      ${r.passed ? '<button class="primary grow" data-action="e-done">完成</button>' : ''}</div></div>`;
+  document.getElementById('e-stuck').addEventListener('input', e => {
+    E.stuckText = e.target.value;
+    document.getElementById('e-matches').innerHTML = stuckMatchesHTML(stuckMatches(E.stuckText), E.stuckText);
+  });
+}
+function stuckMatchesHTML(matches, text) {
+  if (!text) return '';
+  if (!matches.length) return '<p class="small muted">语块库里暂时没有，记下来以后补充</p>';
+  return matches.map(c => `<div class="row small" style="margin:6px 0"><b>${esc(c.phrase)}</b><span class="muted grow">${esc(c.meaning)}</span>${speakBtn(c.example)}</div>`).join('');
+}
+function enduranceStatsHTML() {
+  const sets = store.endurance || [];
+  const best = {};
+  sets.forEach(x => { best[x.day] = Math.max(best[x.day] || 0, x.seconds); });
+  const days = Object.keys(best).map(Number).sort((a, b) => a - b);
+  let curve = '<p class="muted small">完成第一次耐力训练后，这里会画出你的开口时长曲线。</p>';
+  if (days.length) {
+    const maxDay = Math.max(...days, 7), maxY = Math.max(...days.map(d => Math.max(best[d], enduranceTarget(d))), 30);
+    const x = d => 30 + (d - 1) / Math.max(maxDay - 1, 1) * 300, y = v => 160 - v / maxY * 140;
+    const line = days.map(d => `${x(d)},${y(best[d])}`).join(' ');
+    const target = Array.from({ length: maxDay }, (_, i) => `${x(i + 1)},${y(enduranceTarget(i + 1))}`).join(' ');
+    curve = `<svg class="curve" viewBox="0 0 340 180"><polyline points="${target}" fill="none" stroke="var(--gray)" stroke-dasharray="4 4"/>
+      <polyline points="${line}" fill="none" stroke="var(--blue)" stroke-width="2.5"/>${days.map(d => `<circle cx="${x(d)}" cy="${y(best[d])}" r="3.5" fill="var(--blue)"/>`).join('')}
+      <text x="30" y="176" font-size="10" fill="var(--muted)">第 1 天</text><text x="290" y="176" font-size="10" fill="var(--muted)">第 ${maxDay} 天</text>
+      <text x="0" y="${y(maxY) + 4}" font-size="10" fill="var(--muted)">${Math.round(maxY)}秒</text></svg>`;
+  }
+  const milestones = sets.filter(x => x.milestone);
+  const row = x => `<div class="row small" style="margin:6px 0"><span class="grow">第 ${x.day} 天 · 开口 ${secText(x.seconds)} · 卡壳 ${x.pauses} · ${x.words} 词 · 语块 ${x.chunksUsed}</span>${x.audioId ? playBtn(x.audioId, '播放') : ''}</div>`;
+  return `<div class="card"><h2>耐力：最长连续开口</h2>${curve}<p class="small muted">蓝线是你每天最长的一组，灰色虚线是目标。</p></div>
+    <div class="card"><h2>录音对比</h2><p class="small muted">第 1 天录下第一段自我介绍，之后每 30 天用同一个题目再录一次。</p>
+      ${milestones.length ? milestones.map(row).join('') : '<p class="small muted">还没有里程碑录音</p>'}
+      ${sets.length ? `<details><summary class="small">全部耐力记录（${sets.length}）</summary>${sets.slice().reverse().map(row).join('')}</details>` : ''}</div>
+    <div class="card"><h2>卡壳本</h2>${(store.stuck || []).length ? store.stuck.slice().reverse().map(n => `<div style="margin:8px 0"><b>${esc(n.text)}</b>${stuckMatchesHTML(stuckMatches(n.text), n.text)}</div>`).join('') : '<p class="small muted">耐力训练结束后，把想说却说不出的话记在这里。</p>'}</div>`;
+}
+
 // ---------- 事件 ----------
 document.addEventListener('click', e => {
   if (e.target.id === 'modal') { closeModal(); return; }
@@ -1096,6 +1437,20 @@ document.addEventListener('click', e => {
   const a = el.dataset.action;
   if (a === 'tab') { if (PR) quitPractice(); tab = el.dataset.tab; $app.innerHTML = ''; render(); }
   else if (a === 'word') openWord(el.dataset.word);
+  else if (a === 'e-start') enduranceStart();
+  else if (a === 'e-stop') enduranceFinish();
+  else if (a === 'e-exit') { enduranceCancel(); render(); }
+  else if (a === 'e-type-submit') {
+    const text = document.getElementById('e-typed').value.trim();
+    if (text) { E.hasSpoken = true; recordEnduranceSet(words(text).length * 0.4, 0, text, null); }
+  }
+  else if (a === 'e-again') { E.phase = 'intro'; E.stuckSaved = []; E.stuckText = ''; render(); }
+  else if (a === 'e-done') { enduranceCancel(); render(); }
+  else if (a === 'e-play') togglePlay(el.dataset.id);
+  else if (a === 'e-stuck-save') {
+    const text = (E.stuckText || '').trim();
+    if (text) { store.stuck.push({ date: now(), text }); saveStore(); E.stuckSaved.push(text); E.stuckText = ''; render(); }
+  }
   else if (a === 'close-modal') closeModal();
   else if (a === 'pr-start') startPractice(el.dataset.mode);
   else if (a === 'pr-front') { prZhFront = el.dataset.zh === '1'; renderPractice(); }

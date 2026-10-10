@@ -187,6 +187,18 @@ select { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid var(
 .option.right { background: var(--green); color: #fff; }
 .option.wrong { background: var(--red); color: #fff; }
 
+/* 耐力训练 */
+.ring { display: block; margin: 16px auto; }
+.ring-num { text-align: center; margin-top: -142px; height: 142px; }
+.ring-num b { font-size: 52px; font-variant-numeric: tabular-nums; }
+.level { height: 8px; background: var(--card-2); border-radius: 4px; overflow: hidden; margin: 8px 40px; }
+.level i { display: block; height: 100%; background: var(--green); width: 0; transition: width .1s linear; }
+.chip { display: inline-block; padding: 5px 10px; border-radius: 99px; margin: 3px; font-size: 14px; background: color-mix(in srgb, var(--blue) 12%, transparent); }
+.chip.p { color: var(--purple); background: color-mix(in srgb, var(--purple) 12%, transparent); font-weight: 700; }
+textarea { width: 100%; min-height: 140px; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.curve { width: 100%; height: 180px; }
+
 #tabs {
   position: fixed; left: 0; right: 0; bottom: 0;
   display: flex; justify-content: center;
