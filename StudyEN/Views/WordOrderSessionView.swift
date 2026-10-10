@@ -87,7 +87,7 @@ struct WordOrderSessionView: View {
                     .font(.system(size: 64))
                     .foregroundStyle(.green)
                 Text("这一步完成了").font(.title.bold())
-                Text("下一步：开口复习").foregroundStyle(.secondary)
+                Text("下一步：耐力训练（连续开口）").foregroundStyle(.secondary)
                 Spacer()
                 PrimaryButton("返回") { dismiss() }.padding()
             }

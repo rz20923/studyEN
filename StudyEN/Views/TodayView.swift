@@ -7,6 +7,7 @@ struct TodayView: View {
     @Query(sort: \StudyDay.day, order: .reverse) private var days: [StudyDay]
     @Query private var phaseExams: [PhaseExam]
     @Query private var drillProgress: [DrillProgress]
+    @Query private var enduranceSets: [EnduranceSet]
 
     @State private var session: ActiveSession?
 
@@ -16,6 +17,7 @@ struct TodayView: View {
         let mode: TrainingMode?
         let chunks: [Chunk]
         var drills: [WordOrderDrill] = []
+        var endurance = false
     }
 
     /// 今天的任务状态，全部由已保存的数据推导，退出重进不会丢进度
@@ -34,6 +36,9 @@ struct TodayView: View {
         var olderLearned: [Chunk]
         var streak: Int
         var phaseExam: PhaseExam?
+        var enduranceBest: Double
+        var enduranceBestEver: Double
+        var recentChunks: [Chunk]
 
         var allLearned: [Chunk] { learnedToday + olderLearned }
         var phase1Passed: Bool { phaseExam?.passed ?? false }
@@ -43,7 +48,10 @@ struct TodayView: View {
         var learnDone: Bool { newChunks.isEmpty }
         var drillDone: Bool { newDrills.isEmpty }
         var reviewDone: Bool { due.isEmpty }
-        var examReady: Bool { learnDone && drillDone && reviewDone && !(learnedToday.isEmpty && olderLearned.isEmpty) }
+        var enduranceTarget: Double { Endurance.target(day: trainingDay) }
+        var enduranceDone: Bool { enduranceBest >= enduranceTarget }
+        var strengthDone: Bool { reviewDone && learnDone && drillDone }
+        var examReady: Bool { strengthDone && enduranceDone && !(learnedToday.isEmpty && olderLearned.isEmpty) }
     }
 
     private var state: DailyState {
@@ -98,6 +106,12 @@ struct TodayView: View {
             trainingDay = min(trainingDay, Plan.phaseOneDays)
         }
 
+        let todaySets = enduranceSets.filter { cal.isDateInToday($0.date) }
+        let recentChunks = progresses
+            .sorted { $0.introducedDate > $1.introducedDate }
+            .prefix(3)
+            .compactMap { library.chunk(id: $0.chunkID) }
+
         return DailyState(
             trainingDay: trainingDay,
             checkedInDays: checkedInDays,
@@ -112,7 +126,10 @@ struct TodayView: View {
             due: due,
             olderLearned: olderLearned,
             streak: streak,
-            phaseExam: phaseExam
+            phaseExam: phaseExam,
+            enduranceBest: todaySets.map(\.speakingSeconds).max() ?? 0,
+            enduranceBestEver: enduranceSets.map(\.speakingSeconds).max() ?? 0,
+            recentChunks: Array(recentChunks)
         )
     }
 
@@ -127,7 +144,7 @@ struct TodayView: View {
                     HStack(spacing: 12) {
                         StatTile(value: "\(s.checkedInDays)", label: "达标天数", tint: .green)
                         StatTile(value: "\(s.streak)", label: "连续达标", tint: .orange)
-                        StatTile(value: "\(Plan.totalDays - s.checkedInDays)", label: "剩余天数", tint: .blue)
+                        StatTile(value: Endurance.secondsText(s.enduranceBestEver), label: "最长开口", tint: .blue)
                     }
 
                     if needsEncouragement(s) {
@@ -137,46 +154,55 @@ struct TodayView: View {
                     VStack(spacing: 12) {
                         StepRow(
                             number: 1,
-                            title: "学新语块",
+                            title: "热身 · 开口复习",
+                            detail: s.reviewDone ? "已完成" : "\(s.due.count) 个 · 看中文说出英文，错了本轮重来",
+                            state: s.reviewDone ? .done : .active
+                        ) {
+                            session = ActiveSession(mode: .review, chunks: s.due)
+                        }
+
+                        StepRow(
+                            number: 2,
+                            title: "力量 · 学新语块",
                             detail: learnDetail(s),
-                            state: s.learnDone ? .done : .active
+                            state: s.learnDone ? .done : (s.reviewDone ? .active : .locked)
                         ) {
                             session = ActiveSession(mode: .learn, chunks: s.newChunks)
                         }
 
                         StepRow(
-                            number: 2,
-                            title: "语序造句",
+                            number: 3,
+                            title: "力量 · 语序造句",
                             detail: drillDetail(s),
-                            state: s.drillDone ? .done : (s.learnDone ? .active : .locked)
+                            state: s.drillDone ? .done : (s.reviewDone && s.learnDone ? .active : .locked)
                         ) {
                             session = ActiveSession(mode: nil, chunks: [], drills: s.newDrills)
                         }
 
                         StepRow(
-                            number: 3,
-                            title: "开口复习",
-                            detail: s.reviewDone ? "已完成" : "\(s.due.count) 个 · 必须用英文说对，错了本轮重来",
-                            state: s.reviewDone ? .done : (s.learnDone && s.drillDone ? .active : .locked)
+                            number: 4,
+                            title: "耐力 · 连续开口",
+                            detail: enduranceDetail(s),
+                            state: s.enduranceDone ? .done : (s.strengthDone ? .active : .locked)
                         ) {
-                            session = ActiveSession(mode: .review, chunks: s.due)
+                            session = ActiveSession(mode: nil, chunks: s.recentChunks, endurance: true)
                         }
 
                         if s.phase1Passed {
                             phaseDoneCard
                         } else if s.phaseGate {
                             StepRow(
-                                number: 4,
+                                number: 5,
                                 title: "第一阶段总考",
                                 detail: phaseExamDetail(s),
-                                state: s.reviewDone ? .active : .locked
+                                state: s.reviewDone && s.enduranceDone ? .active : .locked
                             ) {
                                 session = ActiveSession(mode: .phaseExam, chunks: s.allLearned)
                             }
                         } else {
                             StepRow(
-                                number: 4,
-                                title: "每日闯关",
+                                number: 5,
+                                title: "达标测试 · 每日闯关",
                                 detail: examDetail(s),
                                 state: s.checkedIn ? .done : (s.examReady ? .active : .locked)
                             ) {
@@ -194,7 +220,9 @@ struct TodayView: View {
             .navigationTitle("今天")
             .task(id: s.checkedIn) { Reminder.refresh(checkedInToday: s.checkedIn) }
             .fullScreenCover(item: $session) { active in
-                if let mode = active.mode {
+                if active.endurance {
+                    EnduranceSessionView(trainingDay: state.trainingDay, suggestions: active.chunks)
+                } else if let mode = active.mode {
                     TrainingSessionView(mode: mode, chunks: active.chunks)
                 } else {
                     WordOrderSessionView(drills: active.drills, showLesson: !state.anyDrillDone)
@@ -255,6 +283,13 @@ struct TodayView: View {
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func enduranceDetail(_ s: DailyState) -> String {
+        let goal = "围绕一个生活话题连续开口 \(Endurance.secondsText(s.enduranceTarget))"
+        if s.enduranceDone { return "已达标 · 今天最长 \(Endurance.secondsText(s.enduranceBest))" }
+        let flag = Endurance.isMilestone(day: s.trainingDay) ? " · 今天有里程碑录音" : ""
+        return s.enduranceBest > 0 ? "\(goal) · 今天最长 \(Endurance.secondsText(s.enduranceBest))\(flag)" : goal + flag
     }
 
     private func drillDetail(_ s: DailyState) -> String {
@@ -334,7 +369,8 @@ struct TodayView: View {
     private var rules: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("达标规则").font(.headline)
-            Label("四步必须按顺序完成，前一步没过，后一步锁定", systemImage: "lock")
+            Label("像健身课一样按顺序练：热身 → 力量 → 耐力 → 达标测试，前一步没过，后一步锁定", systemImage: "lock")
+            Label("耐力：连续开口时长从 10 秒逐步加到 5 分钟，说够才达标", systemImage: "timer")
             Label("语序造句：按「主 → 谓 → 宾 → 方式 → 地点 → 时间」说，\(OrderChecker.rule)", systemImage: "arrow.right")
             Label("全程开口说，由语音识别判定，不能自己点“会了”", systemImage: "mic")
             Label("闯关每题限时 \(Int(Plan.examAnswerSeconds)) 秒；正确率低于 \(Int(Plan.examPassRate * 100))%：错题打回复习，复习完重考", systemImage: "arrow.uturn.backward")

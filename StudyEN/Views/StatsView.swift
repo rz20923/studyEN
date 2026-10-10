@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Charts
 
 struct StatsView: View {
     @Environment(ChunkLibrary.self) private var library
@@ -7,6 +8,7 @@ struct StatsView: View {
     @Query(sort: \StudyDay.day) private var days: [StudyDay]
     @Query private var phaseExams: [PhaseExam]
     @Query private var drillProgress: [DrillProgress]
+    @Query(sort: \EnduranceSet.date) private var enduranceSets: [EnduranceSet]
 
     var body: some View {
         let checked = days.filter(\.checkedIn)
@@ -23,6 +25,31 @@ struct StatsView: View {
                     }
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets())
+                }
+
+                Section {
+                    if enduranceSets.isEmpty {
+                        Text("完成第一次耐力训练后，这里会画出你的开口时长曲线。").foregroundStyle(.secondary)
+                    } else {
+                        Chart {
+                            ForEach(bestPerDay, id: \.day) { point in
+                                LineMark(x: .value("训练日", point.day), y: .value("开口秒数", point.seconds))
+                                PointMark(x: .value("训练日", point.day), y: .value("开口秒数", point.seconds))
+                            }
+                            ForEach(bestPerDay, id: \.day) { point in
+                                LineMark(x: .value("训练日", point.day), y: .value("目标", Endurance.target(day: point.day)), series: .value("线", "目标"))
+                                    .foregroundStyle(.gray.opacity(0.5))
+                                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                            }
+                        }
+                        .frame(height: 180)
+                    }
+                    NavigationLink("录音对比") { RecordingsView() }
+                    NavigationLink("卡壳本") { StuckNotesView() }
+                } header: {
+                    Text("耐力：最长连续开口")
+                } footer: {
+                    Text("蓝线是你每天最长的一组，灰色虚线是目标。")
                 }
 
                 Section {
@@ -89,6 +116,12 @@ struct StatsView: View {
                 }
             }
         }
+    }
+
+    private var bestPerDay: [(day: Int, seconds: Double)] {
+        Dictionary(grouping: enduranceSets, by: \.trainingDay)
+            .map { (day: $0.key, seconds: $0.value.map(\.speakingSeconds).max() ?? 0) }
+            .sorted { $0.day < $1.day }
     }
 
     private var weakest: [ChunkProgress] {

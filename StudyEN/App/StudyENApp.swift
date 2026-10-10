@@ -10,7 +10,7 @@ struct StudyENApp: App {
             RootView()
                 .environment(library)
         }
-        .modelContainer(for: [ChunkProgress.self, StudyDay.self, PhaseExam.self, DrillProgress.self])
+        .modelContainer(for: [ChunkProgress.self, StudyDay.self, PhaseExam.self, DrillProgress.self, EnduranceSet.self, StuckNote.self])
     }
 }
 

@@ -512,7 +512,7 @@ struct TrainingSessionView: View {
                     .font(.system(size: 64))
                     .foregroundStyle(.green)
                 Text("这一步完成了").font(.title.bold())
-                Text(mode == .learn ? "下一步：语序造句" : "下一步：每日闯关，正确率 ≥ \(Int(Plan.examPassRate * 100))% 才能打卡")
+                Text(mode == .learn ? "下一步：语序造句" : (mode == .review ? "下一步：学新语块" : "下一步：达标测试"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Spacer()

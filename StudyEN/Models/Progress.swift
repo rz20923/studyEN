@@ -41,6 +41,53 @@ final class StudyDay {
     }
 }
 
+/// 耐力训练的一组：围绕一个话题连续开口
+@Model
+final class EnduranceSet {
+    var date: Date
+    var trainingDay: Int
+    var topic: String
+    var targetSeconds: Double
+    var speakingSeconds: Double
+    var pauses: Int
+    var words: Int
+    var chunksUsed: Int
+    var passed: Bool
+    /// 录音文件名（Documents/recordings 下）
+    var audioFile: String?
+    /// 里程碑录音：第 1 天和每 30 天，同一个题目
+    var milestone: Bool
+    var transcript: String
+
+    init(trainingDay: Int, topic: String, targetSeconds: Double, speakingSeconds: Double, pauses: Int, words: Int,
+         chunksUsed: Int, passed: Bool, audioFile: String?, milestone: Bool, transcript: String) {
+        self.date = .now
+        self.trainingDay = trainingDay
+        self.topic = topic
+        self.targetSeconds = targetSeconds
+        self.speakingSeconds = speakingSeconds
+        self.pauses = pauses
+        self.words = words
+        self.chunksUsed = chunksUsed
+        self.passed = passed
+        self.audioFile = audioFile
+        self.milestone = milestone
+        self.transcript = transcript
+    }
+}
+
+/// 卡壳本：想说却说不出的话
+@Model
+final class StuckNote {
+    var date: Date
+    var text: String
+
+    init(text: String) {
+        self.date = .now
+        self.text = text
+    }
+}
+
 /// 语序造句完成记录
 @Model
 final class DrillProgress {
