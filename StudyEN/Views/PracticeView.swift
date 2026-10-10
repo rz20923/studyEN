@@ -139,7 +139,7 @@ struct PracticeCardFace: View {
             if zhFront {
                 Text(chunk.meaning).font(.largeTitle.bold()).multilineTextAlignment(.center)
                 if let word = chunk.replaces {
-                    Text("别说 \(word)").foregroundStyle(.red)
+                    Text("比 \(word) 更口语").foregroundStyle(.secondary)
                 }
             } else {
                 Text(chunk.phrase).font(.largeTitle.bold()).multilineTextAlignment(.center)
@@ -314,7 +314,7 @@ struct QuizView: View {
                     VStack(spacing: 8) {
                         Text(q.meaning).font(.largeTitle.bold()).multilineTextAlignment(.center)
                         if let word = q.replaces {
-                            Text("别说 \(word)").foregroundStyle(.red)
+                            Text("比 \(word) 更口语").foregroundStyle(.secondary)
                         }
                     }
                     .frame(maxWidth: .infinity, minHeight: 140)

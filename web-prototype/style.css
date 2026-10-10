@@ -385,3 +385,31 @@ textarea { min-height: 140px; }
 #tabs button.on .ic { stroke-width: 2.4; }
 
 .grp.r-X, .grp.r-J { background: var(--card); color: var(--muted); }
+
+/* ---------- 学新语块：引导式分段跟读 ---------- */
+.lsteps { display: flex; gap: 6px; flex-wrap: wrap; margin: 16px 0 10px; }
+.lsteps span { padding: 4px 10px; border-radius: 99px; background: var(--card-2); font-size: 12px; font-weight: 800; color: var(--muted); }
+.lsteps span.done { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green); }
+.lsteps span.cur { background: var(--accent); color: #fff; }
+.target { border-radius: 20px; padding: 14px 14px 14px; background: var(--card-2); }
+.target-top { display: flex; align-items: center; gap: 8px; }
+.target-label { font-size: 12px; font-weight: 800; }
+.target-words { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: center; margin: 18px 0 16px; row-gap: 6px; }
+.tw { display: inline-flex; flex-direction: column; align-items: center; cursor: pointer; padding: 2px 3px; border-radius: 8px; }
+.tw:hover { background: color-mix(in srgb, var(--card) 70%, transparent); }
+.tw b { font-size: 28px; font-weight: 600; color: var(--text); line-height: 1.2; }
+.tw.st b { font-weight: 900; }
+.tw.wk b { color: var(--muted); font-size: 24px; font-weight: 500; }
+.tw small { font-size: 12px; color: var(--muted); font-weight: 500; white-space: nowrap; }
+.tw small.zh { color: var(--accent); font-weight: 800; font-size: 14px; }
+.tw.wk small { color: var(--orange); }
+.tw.bad b { color: var(--red); text-decoration: underline wavy; text-underline-offset: 5px; }
+.tlnk { font-style: normal; color: var(--accent); font-weight: 900; font-size: 22px; align-self: flex-start; margin-top: 6px; }
+.tgap { width: 10px; }
+.target-play { display: flex; justify-content: center; gap: 10px; }
+.context { font-size: 15px; color: var(--muted); margin: 14px 2px 2px; }
+.context mark { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--text); border-radius: 4px; padding: 0 3px; }
+.context-zh { font-size: 13px; color: var(--muted); margin: 2px; }
+.own-task { font-size: 22px; font-weight: 700; margin: 10px 0 8px; text-align: center; line-height: 1.4; }
+.own-task b { color: var(--accent); }
+.own-ref { font-size: 13px; color: var(--muted); text-align: center; }

@@ -96,8 +96,8 @@ struct ChunkPromptView: View {
             Text(chunk.meaning)
                 .font(.largeTitle.bold())
             if let word = chunk.replaces {
-                Label("别说 \(word)，用口语怎么说？", systemImage: "xmark.octagon")
-                    .foregroundStyle(.red)
+                Label("比 \(word) 更口语的说法", systemImage: "arrow.left.arrow.right")
+                    .foregroundStyle(.secondary)
             }
             if showSentenceHint {
                 Text(chunk.exampleZh)

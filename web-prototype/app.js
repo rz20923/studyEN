@@ -449,7 +449,6 @@ function renderToday() {
     const x = stages[cur];
     const c = CATS[x.cat];
     focus = `<div class="focus"><div class="focus-icon" style="--c:${c.color}">${icon(c.icon, 28)}</div>
-      <div class="focus-cat" style="color:${c.color}">第 ${cur + 1} 步 · ${x.cat}</div>
       <h2>${x.name}</h2><p class="muted">${esc(x.info)}</p>
       <button class="primary" ${x.ready === false ? 'disabled' : ''} data-action="start" data-mode="${x.key}">开始</button></div>`;
   }
@@ -525,16 +524,33 @@ function retake() {
 }
 function resetCard() {
   Object.assign(S, { readPasses: 0, ownDone: false, failed: 0, revealed: false, correct: false, feedback: null, transcript: '', recording: false, itemDone: false, lastCheck: null });
+  const c = current();
+  if (S.mode === 'learn' && c) Object.assign(S, { seg: learnParts(c) ? 0 : -1, whole: 0, lastFail: false });
 }
 const current = () => (S && S.index < S.queue.length ? S.queue[S.index] : null);
 const maxAttempts = () => (isExamMode(S.mode) ? 2 : 3);
 const passRate = () => (S.mode === 'phaseExam' ? PLAN.phaseExamPassRate : PLAN.examPassRate);
 
+// 学新语块的引导流程：第 1 段 → 第 2 段 → … → 整句 ×2 → 造句
+const WHOLE_READS = 2;
+const learnParts = c => (c.parts && c.parts.length > 1 ? c.parts : null);
+function partRange(c, idx) {
+  let i = 0;
+  for (let k = 0; k < idx; k++) i += c.parts[k].en.split(/\s+/).length;
+  return [i, i + c.parts[idx].en.split(/\s+/).length];
+}
+function learnStage(c) {
+  const parts = learnParts(c);
+  if (parts && S.seg >= 0) return { kind: 'part', text: parts[S.seg].en, role: parts[S.seg].role, range: partRange(c, S.seg) };
+  if (S.whole < WHOLE_READS) return { kind: 'whole', text: c.example, range: [0, c.example.split(/\s+/).length] };
+  return { kind: 'own' };
+}
+
 function onCardShown() {
   const c = current();
   if (!c || S.lesson) return;
   S.shownAt = Date.now();
-  if (S.mode === 'learn') speak(c.example);
+  if (S.mode === 'learn') speak(learnStage(c).text);
   if (isExamMode(S.mode) && !store.dev.typeMode) startListening();
 }
 
@@ -547,7 +563,8 @@ function evaluate(text) {
     return S.lastCheck.ok;
   }
   if (S.mode === 'learn') {
-    return S.readPasses >= PLAN.readAloudTimes ? isOwnSentence(text, c) : readingScore(c.example, text) >= PLAN.readingPassScore;
+    const st = learnStage(c);
+    return st.kind === 'own' ? isOwnSentence(text, c) : readingScore(st.text, text) >= PLAN.readingPassScore;
   }
   return matchesPhrase(c.phrase, text);
 }
@@ -563,10 +580,17 @@ function onPass() {
     return;
   }
   if (S.mode === 'learn') {
-    if (S.readPasses >= PLAN.readAloudTimes) { S.ownDone = true; S.feedback = '这句是你自己的了'; }
-    else {
-      S.readPasses++;
-      S.feedback = S.readPasses >= PLAN.readAloudTimes ? '三遍全部达标！现在用它说一句你自己的话' : '很好，再读一遍';
+    const st = learnStage(c);
+    S.feedback = null;
+    S.lastFail = false;
+    if (st.kind === 'own') {
+      S.ownDone = true;
+    } else {
+      if (st.kind === 'part') { S.seg++; if (S.seg >= learnParts(c).length) S.seg = -1; }
+      else S.whole++;
+      S.transcript = '';
+      const next = learnStage(c);
+      if (next.kind !== 'own') setTimeout(() => speak(next.text), 350);
     }
     render();
   } else {
@@ -591,9 +615,10 @@ function attemptFailed() {
     return;
   }
   if (S.mode === 'learn') {
-    S.feedback = S.readPasses >= PLAN.readAloudTimes
-      ? `没达标：句子里要有 ${c.phrase}，至少 ${PLAN.ownSentenceMinWords} 个词，而且不能照读例句`
-      : `没达标：要读对例句中 ${pct(PLAN.readingPassScore)}% 的词，再来一遍`;
+    S.lastFail = true;
+    S.feedback = learnStage(c).kind === 'own'
+      ? `句子里要有 ${c.phrase}，至少 ${PLAN.ownSentenceMinWords} 个词，不能照读例句`
+      : '红色的词没读清，先听一遍再读';
     render();
     return;
   }
@@ -729,6 +754,75 @@ function renderOrderCard(c, top) {
   if (typed) typed.focus();
 }
 
+// 一段话的大字显示：连读用 ‿ 连起来，重读加粗、弱读变浅，下面是音标或汉字；读错的词标红；点词看嘴型
+function wordsHTML(key, from, to, fb) {
+  const s = PRON.sentences[key];
+  if (!s) return '';
+  const zh = store.settings && store.settings.zhPron;
+  const linkAt = {};
+  s.links.forEach(l => { linkAt[l.i] = l.type; });
+  const out = [];
+  for (let k = from; k < to; k++) {
+    const t = s.tokens[k];
+    if (!t) continue;
+    const bad = fb && fb[k - from] === false;
+    const sub = zh ? (t.zh || '') : (t.ipa ? `/${t.ipa}/` : '');
+    out.push(`<span class="tw${t.stress ? ' st' : ''}${t.weak ? ' wk' : ''}${bad ? ' bad' : ''}" data-action="word" data-word="${esc(t.t)}"><b>${esc(t.t)}</b><small class="${zh ? 'zh' : ''}">${sub ? esc(sub) : '&nbsp;'}</small></span>`);
+    if (k < to - 1) out.push(linkAt[k] ? '<i class="tlnk">‿</i>' : '<i class="tgap"></i>');
+  }
+  return out.join('');
+}
+function answerInputHTML(label) {
+  return store.dev.typeMode
+    ? `<input type="text" id="typed" placeholder="键盘代替说话：输入英文，回车提交" autocomplete="off"><button class="primary" data-action="submit-typed">${label}</button>`
+    : `<button class="record ${S.recording ? 'on' : ''}" data-action="record">${S.recording ? '🎙 正在听…点我结束' : `🎤 ${label}`}</button>`;
+}
+function renderLearnCard(c, top) {
+  const parts = learnParts(c);
+  const st = learnStage(c);
+  const onWhole = S.seg === -1;
+  const steps = [
+    ...(parts || []).map((p, i) => ({ label: `第 ${i + 1} 段`, done: onWhole || i < S.seg, cur: S.seg === i })),
+    { label: onWhole && S.whole < WHOLE_READS ? `整句 ${S.whole + 1}/${WHOLE_READS}` : '整句', done: onWhole && S.whole >= WHOLE_READS, cur: onWhole && S.whole < WHOLE_READS },
+    { label: '造句', done: S.ownDone, cur: st.kind === 'own' && !S.ownDone },
+  ];
+  const stepper = `<div class="lsteps">${steps.map(x => `<span class="${x.done ? 'done' : x.cur ? 'cur' : ''}">${x.done ? '✓ ' : ''}${x.label}</span>`).join('')}</div>`;
+  const fb = S.lastFail && S.transcript && st.kind !== 'own' ? wordFeedback(st.text, S.transcript).map(x => x.ok) : null;
+  const on = store.settings && store.settings.zhPron;
+
+  let main;
+  if (st.kind === 'own') {
+    main = `<div class="target"><div class="own-task">用 <b>${esc(c.phrase)}</b><br>说一句你自己的话</div>
+      <div class="own-ref">参考：${esc(c.example)}</div></div>`;
+  } else {
+    const label = st.kind === 'part' ? `第 ${S.seg + 1} 段 · ${ROLE_ZH[st.role] || ''}` : '连起来读整句';
+    main = `<div class="target ${st.kind === 'part' ? `r-${st.role}` : ''}">
+      <div class="target-top"><span class="target-label">${label}</span><span class="grow"></span>
+        <div class="seg tiny"><button class="${on ? '' : 'on'}" data-action="set-zh" data-on="0">音标</button><button class="${on ? 'on' : ''}" data-action="set-zh" data-on="1">汉字</button></div></div>
+      <div class="target-words">${wordsHTML(c.id, st.range[0], st.range[1], fb)}</div>
+      <div class="target-play"><button class="ghost" data-action="speak" data-text="${esc(st.text)}">🔊 听</button><button class="ghost" data-action="speak" data-slow="1" data-text="${esc(st.text)}">🐢 慢速</button></div>
+    </div>`;
+  }
+  const ctx = parts && st.kind === 'part'
+    ? parts.map((p, i) => (i === S.seg ? `<mark>${esc(p.en)}</mark>` : esc(p.en))).join(' ')
+    : esc(c.example);
+
+  $app.innerHTML = `${top}
+    <div class="card learn-card">
+      <div class="phrase-row"><div class="grow"><div class="big">${esc(c.phrase)}</div>
+        <div class="meaning">${esc(c.meaning)}${c.replaces ? ` · 比 ${esc(c.replaces)} 更口语` : ''}</div></div>${speakBtn(c.phrase)}</div>
+      ${stepper}${main}
+      <p class="context">${ctx}</p><p class="context-zh">${esc(c.exampleZh)}</p>
+      ${S.ownDone ? '<p class="result-ok center">✓ 这个语块拿下了</p>' : ''}
+      ${S.recording || (S.transcript && st.kind === 'own') ? `<div class="heard">${esc(S.transcript || '…')}</div>` : ''}
+      ${S.feedback ? `<div class="feedback">${esc(S.feedback)}</div>` : ''}
+    </div>
+    <div class="controls">${S.ownDone ? '<button class="primary" data-action="learn-next">下一个</button>'
+      : answerInputHTML(st.kind === 'own' ? '说一句自己的话' : st.kind === 'part' ? '跟读这一段' : '读整句')}</div>`;
+  const typed = document.getElementById('typed');
+  if (typed) typed.focus();
+}
+
 function renderSession() {
   if (!S) return;
   const c = current();
@@ -772,6 +866,7 @@ function renderSession() {
     return;
   }
   if (S.mode === 'order') { renderOrderCard(c, top); return; }
+  if (S.mode === 'learn') { renderLearnCard(c, top); return; }
 
   const showAnswer = S.mode === 'learn' || S.revealed;
   const body = showAnswer ? `
@@ -780,7 +875,7 @@ function renderSession() {
       ${readerBlock(c.parts || [{ role: 'X', en: c.example }], c.id, c.example, c.exampleZh)}`
     : `
       <div class="big">${esc(c.meaning)}</div>
-      ${c.replaces ? `<p class="warn">⛔ 别说 ${esc(c.replaces)}，用口语怎么说？</p>` : ''}
+      ${c.replaces ? `<p class="muted">比 <b>${esc(c.replaces)}</b> 更口语的说法</p>` : ''}
       ${isExamMode(S.mode) ? '' : `<p class="muted">${esc(c.exampleZh)}</p>`}`;
 
   let extra = '';
@@ -1047,7 +1142,7 @@ function quitPractice() {
 }
 function cardFaceHTML(c, flipped) {
   const front = prZhFront
-    ? `<div class="big">${esc(c.meaning)}</div>${c.replaces ? `<p class="warn">别说 ${esc(c.replaces)}</p>` : ''}`
+    ? `<div class="big">${esc(c.meaning)}</div>${c.replaces ? `<p class="muted">比 ${esc(c.replaces)} 更口语</p>` : ''}`
     : `<div class="big">${esc(c.phrase)}</div>`;
   const back = `<div class="big">${esc(c.phrase)}</div><div style="font-size:18px">${esc(c.meaning)}</div><hr>
     <div><b>${esc(c.example)}</b></div><div class="muted small">${esc(c.exampleZh)}</div><div style="margin-top:8px">${speakBtn(c.phrase)}${speakBtn(c.example, true)}</div>`;
@@ -1074,7 +1169,7 @@ function renderPracticeSession() {
   } else if (PR.mode === 'quiz') {
     const q = PR.q;
     $app.innerHTML = `${top}<div class="row small"><span class="grow" style="color:var(--orange)">🔥 连对 ${PR.streak}</span><span class="muted">最高 ${PR.best} · 正确 ${PR.correct}/${PR.total}</span></div>
-      <div class="center" style="margin:24px 0"><div class="big">${esc(q.meaning)}</div>${q.replaces ? `<p class="warn">别说 ${esc(q.replaces)}</p>` : ''}</div>
+      <div class="center" style="margin:24px 0"><div class="big">${esc(q.meaning)}</div>${q.replaces ? `<p class="muted">比 ${esc(q.replaces)} 更口语</p>` : ''}</div>
       ${PR.options.map(o => {
         let cls = '';
         if (PR.picked) { if (o.id === q.id) cls = 'right'; else if (o.id === PR.picked) cls = 'wrong'; }
