@@ -38,7 +38,10 @@ struct LibraryView: View {
             }
             .navigationTitle("语块库")
             .toolbar {
-                NavigationLink("语序规则") { WordOrderRulesView() }
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    NavigationLink("发音") { PronGuideListView() }
+                    NavigationLink("语序") { WordOrderRulesView() }
+                }
             }
             .searchable(text: $search, prompt: "搜英文、中文或被替代的大词")
             .navigationDestination(for: Chunk.self) { ChunkDetailView(chunk: $0) }
@@ -120,6 +123,10 @@ struct ChunkDetailView: View {
                     SpeakButton(text: chunk.example)
                     SpeakButton(text: chunk.example, slow: true)
                 }
+            }
+            Section("怎么读（点单词看嘴型）") {
+                PronLineView(key: chunk.id + ":p", showNotes: false)
+                PronLineView(key: chunk.id)
             }
             if let tip = chunk.tip {
                 Section("用法提示") { Text(tip) }

@@ -112,6 +112,7 @@ struct WordOrderSessionView: View {
                     Spacer()
                     SpeakButton(text: drill.sentence)
                 }
+                PronLineView(key: drill.id)
             }
 
             if speech.isRecording || !speech.transcript.isEmpty {

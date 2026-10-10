@@ -107,9 +107,10 @@ struct ChunkPromptView: View {
     }
 }
 
-/// 答案：语块 + 例句 + 朗读
+/// 答案：语块 + 例句 + 朗读 + 怎么读
 struct ChunkAnswerView: View {
     let chunk: Chunk
+    @State private var showPron = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -140,6 +141,17 @@ struct ChunkAnswerView: View {
             }
             .padding()
             .background(.background, in: RoundedRectangle(cornerRadius: 12))
+
+            DisclosureGroup(isExpanded: $showPron) {
+                VStack(alignment: .leading, spacing: 12) {
+                    PronLineView(key: chunk.id + ":p", showNotes: false)
+                    PronLineView(key: chunk.id)
+                }
+                .padding(.top, 6)
+            } label: {
+                Label("怎么读：重音 · 弱读 · 连读（点单词看嘴型）", systemImage: "waveform")
+                    .font(.subheadline.bold())
+            }
 
             if let tip = chunk.tip {
                 Label(tip, systemImage: "lightbulb")
@@ -202,20 +214,29 @@ struct PartsView: View {
 struct WordFeedbackView: View {
     let sentence: String
     let transcript: String
+    @State private var selected: WordRef?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("发音反馈（红色 = 没读出来或没读清，点上面对应的那一段再听一遍）")
+            Text("发音反馈（红色 = 没读出来或没读清；点红色的词看怎么发音）")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             FlowLayout(spacing: 5) {
                 ForEach(Array(PhraseMatcher.wordFeedback(sentence, transcript: transcript).enumerated()), id: \.offset) { _, item in
-                    Text(item.text)
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(item.ok ? Color.green : Color.red)
-                        .underline(!item.ok)
+                    Button {
+                        if !item.ok { selected = WordRef(token: item.text) }
+                    } label: {
+                        Text(item.text)
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(item.ok ? Color.green : Color.red)
+                            .underline(!item.ok)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
+        }
+        .sheet(item: $selected) { ref in
+            WordGuideSheet(token: ref.token)
         }
     }
 }
@@ -228,7 +249,7 @@ struct AnswerSheetView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("答题卡 · 已答 \(answers.count)/\(count) · 对 \(answers.values.filter { $0 }.count)")
+            Text("本轮答题 · 已答 \(answers.count)/\(count) · 对 \(answers.values.filter { $0 }.count)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             if count > 40 {

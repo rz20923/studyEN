@@ -71,13 +71,16 @@ enum SentenceRole {
 final class ChunkLibrary {
     let chunks: [Chunk]
     let drills: [WordOrderDrill]
+    /// 发音数据：每句的重音/弱读/连读、每个词的音标和难点音、发音指南
+    let pron: PronunciationData
     /// 学习顺序：润滑剂打头，并均匀穿插在短语动词之间
     let learningOrder: [Chunk]
     private let byID: [String: Chunk]
 
-    init(chunks: [Chunk], drills: [WordOrderDrill]) {
+    init(chunks: [Chunk], drills: [WordOrderDrill], pron: PronunciationData) {
         self.chunks = chunks
         self.drills = drills
+        self.pron = pron
         self.byID = Dictionary(chunks.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         self.learningOrder = Self.interleave(
             fillers: chunks.filter { $0.kind == .filler },
@@ -86,7 +89,13 @@ final class ChunkLibrary {
     }
 
     static func load() -> ChunkLibrary {
-        ChunkLibrary(chunks: decode("chunks"), drills: decode("word_order"))
+        ChunkLibrary(chunks: decode("chunks"), drills: decode("word_order"), pron: decodeObject("pronunciation") ?? .empty)
+    }
+
+    private static func decodeObject<T: Decodable>(_ name: String) -> T? {
+        guard let url = Bundle.main.url(forResource: name, withExtension: "json"),
+              let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(T.self, from: data)
     }
 
     private static func decode<T: Decodable>(_ name: String) -> [T] {

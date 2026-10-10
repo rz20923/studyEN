@@ -19,6 +19,8 @@ struct RootView: View {
         TabView {
             TodayView()
                 .tabItem { Label("今天", systemImage: "sun.max") }
+            PracticeView()
+                .tabItem { Label("随手练", systemImage: "rectangle.on.rectangle.angled") }
             LibraryView()
                 .tabItem { Label("语块库", systemImage: "square.stack.3d.up") }
             StatsView()
