@@ -9,22 +9,23 @@ struct StudyENApp: App {
         WindowGroup {
             RootView()
                 .environment(library)
+                .preferredColorScheme(.light)
         }
-        .modelContainer(for: [ChunkProgress.self, StudyDay.self, PhaseExam.self, DrillProgress.self, EnduranceSet.self, StuckNote.self])
+        .modelContainer(for: [ChunkProgress.self, StudyDay.self, PhaseExam.self, DrillProgress.self, EnduranceSet.self, StuckNote.self, TopicProgress.self])
     }
 }
 
+/// 三个标签：训练（打开即练）/ 课题 / 我的
 struct RootView: View {
     var body: some View {
         TabView {
-            TodayView()
-                .tabItem { Label("今天", systemImage: "sun.max") }
-            PracticeView()
-                .tabItem { Label("随手练", systemImage: "rectangle.on.rectangle.angled") }
-            LibraryView()
-                .tabItem { Label("语块库", systemImage: "square.stack.3d.up") }
-            StatsView()
-                .tabItem { Label("进度", systemImage: "chart.bar") }
+            TrainView()
+                .tabItem { Label("训练", systemImage: "square.stack.3d.up.fill") }
+            TopicsView()
+                .tabItem { Label("课题", systemImage: "square.grid.2x2") }
+            MeView()
+                .tabItem { Label("我的", systemImage: "person") }
         }
+        .tint(Theme.ink)
     }
 }

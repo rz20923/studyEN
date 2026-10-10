@@ -73,14 +73,21 @@ final class ChunkLibrary {
     let drills: [WordOrderDrill]
     /// 发音数据：每句的重音/弱读/连读、每个词的音标和难点音、发音指南
     let pron: PronunciationData
+    /// 课题（MVP 的主线内容）
+    let topics: [Topic]
+    private let unitByID: [String: (topic: Topic, unit: TopicUnit)]
     /// 学习顺序：润滑剂打头，并均匀穿插在短语动词之间
     let learningOrder: [Chunk]
     private let byID: [String: Chunk]
 
-    init(chunks: [Chunk], drills: [WordOrderDrill], pron: PronunciationData) {
+    init(chunks: [Chunk], drills: [WordOrderDrill], pron: PronunciationData, topics: [Topic]) {
         self.chunks = chunks
         self.drills = drills
         self.pron = pron
+        self.topics = topics
+        var map: [String: (topic: Topic, unit: TopicUnit)] = [:]
+        for t in topics { for u in t.units { map[u.id] = (t, u) } }
+        self.unitByID = map
         self.byID = Dictionary(chunks.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         self.learningOrder = Self.interleave(
             fillers: chunks.filter { $0.kind == .filler },
@@ -89,7 +96,7 @@ final class ChunkLibrary {
     }
 
     static func load() -> ChunkLibrary {
-        ChunkLibrary(chunks: decode("chunks"), drills: decode("word_order"), pron: decodeObject("pronunciation") ?? .empty)
+        ChunkLibrary(chunks: decode("chunks"), drills: decode("word_order"), pron: decodeObject("pronunciation") ?? .empty, topics: decode("topics"))
     }
 
     private static func decodeObject<T: Decodable>(_ name: String) -> T? {
@@ -109,6 +116,8 @@ final class ChunkLibrary {
     }
 
     func chunk(id: String) -> Chunk? { byID[id] }
+
+    func unit(id: String) -> (topic: Topic, unit: TopicUnit)? { unitByID[id] }
 
     func scenes(of kind: ChunkKind) -> [String] {
         var seen = Set<String>()
