@@ -112,6 +112,7 @@ struct WordOrderSessionView: View {
                     Spacer()
                     SpeakButton(text: drill.sentence)
                 }
+                PronModeToggle()
                 PronLineView(key: drill.id)
             }
 

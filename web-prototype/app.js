@@ -36,6 +36,7 @@ function defaultStore() {
     days: {},
     phaseExam: { passed: false, bestScore: 0, attempts: 0, lastAttemptDay: null },
     dev: { offsetDays: 0, typeMode: false },
+    settings: { zhPron: false }, // 汉字音译
   };
 }
 function loadStore() {
@@ -318,11 +319,28 @@ const pct = x => Math.round(x * 100);
 const kindTag = c => `<span class="tag ${c.kind}">${c.kind === 'phrasal' ? '短语' : '支架'}</span>`;
 const speakBtn = (text, slow) => `<button class="icon-btn" data-action="speak" data-text="${esc(text)}" ${slow ? 'data-slow="1"' : ''} title="${slow ? '慢速朗读' : '朗读'}">${slow ? '🐢' : '🔊'}</button>`;
 
+// ---------- 图标 ----------
+const ICONS = {
+  train: '<path d="M6 7v10M18 7v10M3 10v4M21 10v4M6 12h12"/>',
+  cards: '<rect x="3" y="7" width="13" height="14" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v12"/>',
+  book: '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/>',
+  chart: '<path d="M4 20V11M10 20V5M16 20v-6M2 20h20"/>',
+  tool: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/>',
+  flame: '<path d="M12 3c.5 3.5 5 5.5 5 10.5a5 5 0 0 1-10 0c0-2.5 1.5-4 2.5-5.5.5 2 1.5 3 2.5 3.5 0-3-.5-5.5 0-8.5z"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  trophy: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v1.5a3.5 3.5 0 0 0 3.5 3.5M17 6h3v1.5a3.5 3.5 0 0 1-3.5 3.5"/>',
+  order: '<path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"/>',
+  minus: '<path d="M6 12h12"/>',
+};
+const icon = (name, size = 22) => `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>`;
+
 function render() {
   if (E) { $tabs.innerHTML = ''; renderEndurance(); return; }
   if (S) { $tabs.innerHTML = ''; renderSession(); return; }
-  $tabs.innerHTML = [['today', '今天'], ['practice', '随手练'], ['library', '语块库'], ['stats', '进度'], ['dev', '测试工具']]
-    .map(([k, label]) => `<button data-action="tab" data-tab="${k}" class="${tab === k ? 'on' : ''}">${label}</button>`).join('');
+  $tabs.innerHTML = `<div class="tabs-inner">${[['today', '训练', 'train'], ['practice', '随手练', 'cards'], ['library', '语块库', 'book'], ['stats', '进度', 'chart'], ['dev', '测试', 'tool']]
+    .map(([k, label, ic]) => `<button data-action="tab" data-tab="${k}" class="${tab === k ? 'on' : ''}">${icon(ic, 22)}<span>${label}</span></button>`).join('')}</div>`;
   if (tab === 'today') renderToday();
   else if (tab === 'practice') renderPractice();
   else if (tab === 'library') renderLibrary();
@@ -330,93 +348,124 @@ function render() {
   else renderDev();
 }
 
-// ---------- 今天 ----------
+// ---------- 今天：一节训练课 ----------
 function phaseTitle(day) {
   const i = PLAN.phases.findIndex(([a, b]) => day >= a && day <= b);
   return i < 0 ? '180 天训练已完成' : `第 ${i + 1} 阶段 · ${PLAN.phases[i][2]}`;
 }
+const CATS = {
+  热身: { color: '#F59E0B', icon: 'flame' },
+  力量: { color: '#3B82F6', icon: 'train' },
+  耐力: { color: '#8B5CF6', icon: 'mic' },
+  达标测试: { color: '#10B981', icon: 'trophy' },
+};
+const MINUTES = { review: 10, learn: 15, order: 10, endurance: 10, exam: 5, phaseExam: 30 };
+// state：active 可以开始 / done 完成 / locked 锁定 / skip 今天没有内容
 function stepHTML(n, title, detail, state, mode) {
-  const icon = state === 'done' ? '✅' : state === 'locked' ? '🔒' : `${n}️⃣`;
-  return `<button class="step" ${state === 'active' ? `data-action="start" data-mode="${mode}"` : 'disabled'}>
-    <span class="icon">${icon}</span>
-    <span class="grow"><b>第 ${n} 步 · ${esc(title)}</b><span class="muted small">${esc(detail)}</span></span>
-    ${state === 'active' ? '<span class="muted">›</span>' : ''}
+  const [cat, name] = title.includes(' · ') ? title.split(' · ') : ['达标测试', title];
+  const c = CATS[cat] || CATS['达标测试'];
+  // 完成后的热身和耐力可以加练（不影响复习计划和打卡）
+  const extra = state === 'done' && (mode === 'review' || mode === 'endurance');
+  const click = state === 'active' ? `data-action="start" data-mode="${mode}"`
+    : extra ? `data-action="start" data-mode="${mode === 'review' ? 'extra' : 'endurance'}"` : 'disabled';
+  const ic = state === 'done' ? 'check' : state === 'locked' ? 'lock' : state === 'skip' ? 'minus' : c.icon;
+  const cta = state === 'active' ? '<span class="plan-cta">开始</span>' : extra ? '<span class="plan-cta ghosty">加练</span>' : '';
+  return `<button class="plan-item ${state}" ${click}>
+    <span class="plan-icon" style="--c:${c.color}">${icon(ic, 22)}</span>
+    <span class="grow"><span class="plan-cat" style="color:${c.color}">${n} · ${esc(cat)} · ${MINUTES[mode] || 10} 分钟</span>
+      <b>${esc(name)}</b><span class="plan-detail">${esc(detail)}</span></span>${cta}
   </button>`;
 }
 function renderToday() {
   const s = dailyState();
   const ok = s.checkedIn || s.phase1Passed;
   const badge = s.phase1Passed ? '第一阶段通关' : s.phaseGate ? '阶段总考' : s.checkedIn ? '今日已达标' : '今日未打卡';
+  const neverLearned = s.allLearned.length === 0;
 
   const learnDetail = s.learnDone
     ? (s.learnedToday.length ? `已完成 · 今天学了 ${s.learnedToday.length} 个` : '今日无新语块')
     : `${s.newChunks.length} 个 · 跟读 ${PLAN.readAloudTimes} 遍 + 用它说一句自己的话`;
-  const reviewDetail = s.reviewDone ? '已完成' : `${s.due.length} 个 · 必须用英文说对，错了本轮重来`;
+  const reviewState = !s.reviewDone ? 'active' : neverLearned ? 'skip' : 'done';
+  const reviewDetail = !s.reviewDone ? `${s.due.length} 个 · 看中文说出英文，错了本轮重来`
+    : neverLearned ? '第 1 天还没有要复习的内容，直接开始力量训练' : '今天的复习已完成 · 想多练可以点「加练」';
   const drillDetail = s.drillDone
     ? (s.drillsDoneToday ? `已完成 · 今天练了 ${s.drillsDoneToday} 句` : '今日无语序练习')
     : `${s.newDrills.length} 句 · 看中文，按「主谓宾方地时」说出英文`;
 
-  let step3;
+  let step5;
   if (s.phase1Passed) {
-    step3 = `<div class="card"><h2>🏆 第一阶段通关</h2><p class="muted small">第二阶段开放前，每天完成复习，保持语块不生疏。这段时间不计入 180 天。</p></div>`;
+    step5 = `<div class="card"><h2>🏆 第一阶段通关</h2><p class="muted small">第二阶段开放前，每天完成复习，保持语块不生疏。这段时间不计入 180 天。</p></div>`;
   } else if (s.phaseGate) {
     const pe = s.phaseExam;
     const rule = `全部 ${s.allLearned.length} 个语块限时回想，≥ ${pct(PLAN.phaseExamPassRate)}% 通关`;
     const best = pe.attempts ? ` · 已考 ${pe.attempts} 次，最高 ${pct(pe.bestScore)}%` : '';
-    const detail = (s.reviewDone ? rule : `先复习错题 · ${rule}`) + best;
-    step3 = stepHTML(5, '第一阶段总考', detail, s.reviewDone && s.enduranceDone ? 'active' : 'locked', 'phaseExam');
+    step5 = stepHTML(5, '第一阶段总考', (s.reviewDone ? rule : `先复习错题 · ${rule}`) + best, s.reviewDone && s.enduranceDone ? 'active' : 'locked', 'phaseExam');
   } else {
     const line = `正确率 ≥ ${pct(PLAN.examPassRate)}% 才能打卡`;
     const today = s.today || {};
     const detail = s.checkedIn ? `已打卡 · 正确率 ${pct(today.examScore)}%`
       : today.examAttempts ? `${line} · 已挑战 ${today.examAttempts} 次，最高 ${pct(today.examScore)}%` : line;
-    step3 = stepHTML(5, '达标测试 · 每日闯关', detail, s.checkedIn ? 'done' : s.examReady ? 'active' : 'locked', 'exam');
+    step5 = stepHTML(5, '达标测试 · 每日闯关', detail, s.checkedIn ? 'done' : s.examReady ? 'active' : 'locked', 'exam');
   }
-
-  const roadmap = PLAN.phases.map(([a, b, title]) => {
-    const active = s.trainingDay >= a && s.trainingDay <= b, done = s.trainingDay > b;
-    return `<div class="row small" style="margin:4px 0"><span>${done ? '✅' : active ? '🔵' : '⚪'}</span>
-      <span class="muted" style="width:96px">第 ${a}–${b} 天</span><span style="${active ? 'font-weight:700' : 'color:var(--muted)'}">${title}</span></div>`;
-  }).join('');
 
   const today = s.today || {};
   const attempted = s.phaseGate ? s.phaseAttemptedToday : today.examAttempts > 0;
   const encourage = !s.checkedIn && !s.phase1Passed && attempted
-    ? `<div class="card" style="background:color-mix(in srgb, var(--orange) 14%, var(--card))"><h2>🔥 今天还没达标，别放弃！</h2>
-       <p class="small muted" style="margin:0">最高 ${pct(s.phaseGate ? s.phaseExam.bestScore : today.examScore)}%，达标线 ${pct(s.phaseGate ? PLAN.phaseExamPassRate : PLAN.examPassRate)}%。先把错题复习完，再重新闯关，今天就把打卡拿下。</p></div>`
+    ? `<div class="card encourage"><h2>🔥 今天还没达标，别放弃！</h2>
+       <p class="small" style="margin:0">最高 ${pct(s.phaseGate ? s.phaseExam.bestScore : today.examScore)}%，达标线 ${pct(s.phaseGate ? PLAN.phaseExamPassRate : PLAN.examPassRate)}%。先把错题复习完，再重新闯关，今天就把打卡拿下。</p></div>`
     : '';
 
+  // 今天这节课完成了几步
+  const doneSteps = [s.reviewDone, s.learnDone, s.drillDone, s.enduranceDone, s.checkedIn].filter(Boolean).length;
+  const C = 2 * Math.PI * 34;
+  const day = Math.min(s.trainingDay, PLAN.totalDays);
+  const roadmap = PLAN.phases.map(([a, b, title], i) => {
+    const active = s.trainingDay >= a && s.trainingDay <= b, done = s.trainingDay > b;
+    return `<div class="phase ${active ? 'on' : ''} ${done ? 'done' : ''}"><i></i><b>${i + 1}</b><span>${title}</span><em>${a}–${b} 天</em></div>`;
+  }).join('');
+
   $app.innerHTML = `
-    <p class="muted small" style="margin:0">${esc(phaseTitle(s.trainingDay))} · 模拟日期 ${dayKey(s.t)}</p>
-    <div class="row"><h1 class="grow">第 ${Math.min(s.trainingDay, PLAN.totalDays)} / ${PLAN.totalDays} 天</h1>
-      <span class="badge ${ok ? 'ok' : 'no'}">${badge}</span></div>
-    <div class="bar"><i style="width:${(s.checkedInDays / PLAN.totalDays) * 100}%"></i></div>
-    <div class="tiles">
-      <div class="tile"><b style="color:var(--green)">${s.checkedInDays}</b><span class="muted small">达标天数</span></div>
-      <div class="tile"><b style="color:var(--orange)">${s.streak}</b><span class="muted small">连续达标</span></div>
-      <div class="tile"><b style="color:var(--blue)">${secText(s.enduranceBestEver)}</b><span class="muted small">最长开口</span></div>
-    </div>
+    <section class="hero">
+      <div class="hero-top"><span>${esc(phaseTitle(s.trainingDay))}</span><span class="pill ${ok ? 'ok' : ''}">${badge}</span></div>
+      <div class="hero-main">
+        <div><div class="hero-day"><span>DAY</span><b>${day}</b><em>/ ${PLAN.totalDays}</em></div>
+          <div class="hero-sub">今日训练 ${doneSteps}/5 · 约 50 分钟${store.dev.offsetDays ? ` · 模拟 ${dayKey(s.t)}` : ''}</div></div>
+        <svg class="hero-ring" width="88" height="88" viewBox="0 0 88 88"><circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="9"/>
+          <circle cx="44" cy="44" r="34" fill="none" stroke="var(--volt)" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - doneSteps / 5)}" transform="rotate(-90 44 44)"/>
+          <text x="44" y="50" text-anchor="middle" font-size="18" font-weight="800" fill="#fff">${Math.round(doneSteps / 5 * 100)}%</text></svg>
+      </div>
+      <div class="hero-stats">
+        <div><b>${s.checkedInDays}</b><span>达标天数</span></div>
+        <div><b>${s.streak}</b><span>连续达标</span></div>
+        <div><b>${secText(s.enduranceBestEver)}</b><span>最长开口</span></div>
+      </div>
+      <div class="hero-bar"><i style="width:${Math.max(2, s.checkedInDays / PLAN.totalDays * 100)}%"></i></div>
+    </section>
     ${encourage}
-    ${stepHTML(1, '热身 · 开口复习', reviewDetail, s.reviewDone ? 'done' : 'active', 'review')}
-    ${stepHTML(2, '力量 · 学新语块', learnDetail, s.learnDone ? 'done' : s.reviewDone ? 'active' : 'locked', 'learn')}
-    ${stepHTML(3, '力量 · 语序造句', drillDetail, s.drillDone ? 'done' : s.reviewDone && s.learnDone ? 'active' : 'locked', 'order')}
-    ${stepHTML(4, '耐力 · 连续开口', enduranceDetail(s), s.enduranceDone ? 'done' : s.strengthDone ? 'active' : 'locked', 'endurance')}
-    ${step3}
-    <div class="card"><h2>180 天路线</h2><p class="muted small">只算达标打卡的天数。没达标的日子不算，计划不会往前走。</p>${roadmap}</div>
-    <div class="card"><h2>达标规则</h2><ul class="rules">
+    <div class="section-title">今日训练课</div>
+    <div class="plan">
+      ${stepHTML(1, '热身 · 开口复习', reviewDetail, reviewState, 'review')}
+      ${stepHTML(2, '力量 · 学新语块', learnDetail, s.learnDone ? 'done' : s.reviewDone ? 'active' : 'locked', 'learn')}
+      ${stepHTML(3, '力量 · 语序造句', drillDetail, s.drillDone ? 'done' : s.reviewDone && s.learnDone ? 'active' : 'locked', 'order')}
+      ${stepHTML(4, '耐力 · 连续开口', enduranceDetail(s), s.enduranceDone ? 'done' : s.strengthDone ? 'active' : 'locked', 'endurance')}
+      ${step5}
+    </div>
+    <div class="section-title">180 天路线</div>
+    <div class="card roadmap">${roadmap}<p class="muted small" style="margin:10px 0 0">只算达标打卡的天数。没达标的日子不算，计划不会往前走。</p></div>
+    <details class="card rules-card"><summary>达标规则</summary><ul class="rules">
       <li>像健身课一样按顺序练：热身 → 力量 → 耐力 → 达标测试，前一步没过，后一步锁定</li>
       <li>耐力：连续开口时长从 10 秒逐步加到 5 分钟，说够才达标</li>
       <li>语序造句：按「主 → 谓 → 宾 → 方式 → 地点 → 时间」说，${ORDER_RULE}</li>
       <li>全程开口说，由语音识别判定，不能自己点“会了”</li>
       <li>闯关每题限时 ${PLAN.examAnswerSeconds} 秒；正确率低于 ${pct(PLAN.examPassRate)}%：错题打回复习，复习完重考</li>
       <li>当天没达标就当天练到达标：错题复习完马上重考，不推到明天</li>
-      <li>第 30 天后必须通过阶段总考（≥ ${pct(PLAN.phaseExamPassRate)}%，没过就复习错题后当天重考）才能进入下一阶段</li>
-    </ul></div>`;
+      <li>加练（完成后的热身、耐力）不影响复习计划和打卡</li>
+    </ul></details>`;
 }
 
 // ---------- 训练会话（与 TrainingSessionView.swift 一致） ----------
 const isExamMode = m => m === 'exam' || m === 'phaseExam';
-const MODE_TITLE = { learn: '学新语块', order: '语序造句', review: '开口复习', exam: '每日闯关', phaseExam: '第一阶段总考' };
+const MODE_TITLE = { learn: '学新语块', order: '语序造句', review: '开口复习', extra: '加练 · 开口复习', exam: '每日闯关', phaseExam: '第一阶段总考' };
 
 function startSession(mode) {
   const s = dailyState();
@@ -425,6 +474,7 @@ function startSession(mode) {
   if (mode === 'learn') chunks = s.newChunks;
   else if (mode === 'order') chunks = s.newDrills;
   else if (mode === 'review') chunks = s.due;
+  else if (mode === 'extra') chunks = shuffle(s.allLearned).slice(0, 10);
   else if (mode === 'exam') chunks = s.learnedToday.concat(shuffle(s.olderLearned).slice(0, PLAN.examExtraOld));
   else chunks = s.allLearned;
   if (!chunks.length) return;
@@ -555,6 +605,8 @@ function markResult(c, ok) {
     if (p) applySRS(ok ? 'good' : 'again', p);
     studyDay().reviews++;
     if (!ok) S.queue.push(c);
+  } else if (S.mode === 'extra') {
+    if (!ok) S.queue.push(c);
   } else if (isExamMode(S.mode)) {
     S.answers[S.index] = ok;
     if (!ok) S.wrong.push(c);
@@ -660,7 +712,7 @@ function renderOrderCard(c, top) {
   let extra = '';
   if (S.revealed) {
     extra += `<p class="${S.correct ? 'result-ok' : 'result-no'}">${S.correct ? '✔ 语序正确' : '✘ 语序没过'}</p>${segsHTML(c)}
-      <div class="row"><b class="grow">${esc(drillSentence(c))}</b>${speakBtn(drillSentence(c))}</div>${pronHTML(c.id)}`;
+      <div class="row"><b class="grow">${esc(drillSentence(c))}</b>${speakBtn(drillSentence(c))}</div>${zhToggleHTML()}${pronHTML(c.id)}`;
   }
   if (S.recording || S.transcript) extra += `<div class="small muted" style="margin-top:8px">听到的：</div><div class="heard">${esc(S.transcript || '…')}</div>`;
   if (S.feedback) extra += `<div class="feedback">${esc(S.feedback)}</div>`;
@@ -705,7 +757,7 @@ function renderSession() {
   }
   if (!c) {
     $app.innerHTML = `${top}<div class="center" style="margin-top:48px"><div style="font-size:56px">✅</div><h1>这一步完成了</h1>
-      <p class="muted">${S.mode === 'learn' ? '下一步：语序造句' : S.mode === 'review' ? '下一步：学新语块' : S.mode === 'order' ? '下一步：耐力训练（连续开口）' : '下一步：达标测试'}</p></div>
+      <p class="muted">${S.mode === 'learn' ? '下一步：语序造句' : S.mode === 'extra' ? '加练完成，不影响复习计划和打卡' : S.mode === 'review' ? '下一步：学新语块' : S.mode === 'order' ? '下一步：耐力训练（连续开口）' : '下一步：达标测试'}</p></div>
       <div class="controls"><button class="primary" data-action="exit">返回</button></div>`;
     return;
   }
@@ -923,12 +975,19 @@ function pronHTML(key, showNotes = true) {
   if (!s) return '';
   const linkAt = {};
   s.links.forEach(l => { linkAt[l.i] = l.type; });
-  const toks = s.tokens.map((t, i) => `<span class="pw${t.stress ? ' st' : ''}${t.weak ? ' wk' : ''}${t.focus ? ' fc' : ''}" data-action="word" data-word="${esc(t.t)}"><b>${esc(t.t)}</b><small>${t.ipa ? '/' + esc(t.ipa) + '/' : '&nbsp;'}</small></span>`
+  const zh = store.settings && store.settings.zhPron;
+  const toks = s.tokens.map((t, i) => `<span class="pw${t.stress ? ' st' : ''}${t.weak ? ' wk' : ''}${t.focus ? ' fc' : ''}" data-action="word" data-word="${esc(t.t)}"><b>${esc(t.t)}</b>${zh
+    ? `<small class="zh">${t.zh ? esc(t.zh) : '&nbsp;'}</small>` : `<small>${t.ipa ? '/' + esc(t.ipa) + '/' : '&nbsp;'}</small>`}</span>`
     + (linkAt[i] ? `<span class="lk lk-${linkAt[i]}">‿<small>${LINK_LABEL[linkAt[i]]}</small></span>` : '')).join('');
   return `<div class="pron-line">${toks}</div>${showNotes ? `<ul class="pron-notes">${s.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}`;
 }
 function pronBlock(c) {
-  return `<details class="pron" open><summary>〰 怎么读：重音 · 弱读 · 连读（点单词看嘴型）</summary>${pronHTML(c.id + ':p', false)}${pronHTML(c.id)}</details>`;
+  return `<details class="pron" open><summary>〰 怎么读：重音 · 弱读 · 连读（点单词看嘴型）</summary>${zhToggleHTML()}${pronHTML(c.id + ':p', false)}${pronHTML(c.id)}</details>`;
+}
+function zhToggleHTML() {
+  const on = store.settings && store.settings.zhPron;
+  return `<div class="pron-tools"><button class="mini ${on ? '' : 'on'}" data-action="set-zh" data-on="0">音标</button><button class="mini ${on ? 'on' : ''}" data-action="set-zh" data-on="1">汉字音译</button></div>
+    ${on ? '<div class="zh-note">汉字只是近似：th、v、r/l 这些音中文里没有，点单词看嘴型才是标准读法。</div>' : ''}`;
 }
 function guideCardHTML(g, title = true) {
   const bars = [1, 2, 3, 4].map(i => `<i class="${i <= g.open ? 'on' : ''}" style="height:${6 + i * 4}px"></i>`).join('');
@@ -943,7 +1002,7 @@ function openWord(token) {
   const guides = (info ? info.g : []).map(id => PRON.guides.find(g => g.id === id)).filter(Boolean);
   let m = document.getElementById('modal');
   if (!m) { m = document.createElement('div'); m.id = 'modal'; document.body.appendChild(m); }
-  m.innerHTML = `<div class="sheet-panel"><div class="row"><div class="grow"><h1 style="margin:0">${esc(k)}</h1>${info ? `<div class="muted">/${esc(info.ipa)}/</div>` : ''}</div>
+  m.innerHTML = `<div class="sheet-panel"><div class="row"><div class="grow"><h1 style="margin:0">${esc(k)}</h1>${info ? `<div class="muted">/${esc(info.ipa)}/${info.zh ? ` · 汉字近似：<b style="color:var(--accent)">${esc(info.zh)}</b>` : ''}</div>` : ''}</div>
       ${speakBtn(k)}${speakBtn(k, true)}<button class="ghost" data-action="close-modal">关闭</button></div>
     ${guides.length ? guides.map(g => `<div class="card">${guideCardHTML(g)}</div>`).join('') : '<p class="muted">这个词没有特别难的音，听朗读跟着模仿就行。</p>'}</div>`;
   m.className = 'on';
@@ -1437,6 +1496,7 @@ document.addEventListener('click', e => {
   const a = el.dataset.action;
   if (a === 'tab') { if (PR) quitPractice(); tab = el.dataset.tab; $app.innerHTML = ''; render(); }
   else if (a === 'word') openWord(el.dataset.word);
+  else if (a === 'set-zh') { store.settings = Object.assign({}, store.settings, { zhPron: el.dataset.on === '1' }); saveStore(); render(); }
   else if (a === 'e-start') enduranceStart();
   else if (a === 'e-stop') enduranceFinish();
   else if (a === 'e-exit') { enduranceCancel(); render(); }

@@ -155,10 +155,16 @@ struct TodayView: View {
                         StepRow(
                             number: 1,
                             title: "热身 · 开口复习",
-                            detail: s.reviewDone ? "已完成" : "\(s.due.count) 个 · 看中文说出英文，错了本轮重来",
-                            state: s.reviewDone ? .done : .active
+                            detail: !s.reviewDone ? "\(s.due.count) 个 · 看中文说出英文，错了本轮重来"
+                                : (s.allLearned.isEmpty ? "第 1 天还没有要复习的内容，直接开始力量训练" : "今天的复习已完成 · 想多练可以点「加练」"),
+                            state: !s.reviewDone ? .active : (s.allLearned.isEmpty ? .skip : .done),
+                            tappableWhenDone: true
                         ) {
-                            session = ActiveSession(mode: .review, chunks: s.due)
+                            if s.reviewDone {
+                                session = ActiveSession(mode: .extra, chunks: Array(s.allLearned.shuffled().prefix(10)))
+                            } else {
+                                session = ActiveSession(mode: .review, chunks: s.due)
+                            }
                         }
 
                         StepRow(
@@ -183,7 +189,8 @@ struct TodayView: View {
                             number: 4,
                             title: "耐力 · 连续开口",
                             detail: enduranceDetail(s),
-                            state: s.enduranceDone ? .done : (s.strengthDone ? .active : .locked)
+                            state: s.enduranceDone ? .done : (s.strengthDone ? .active : .locked),
+                            tappableWhenDone: true
                         ) {
                             session = ActiveSession(mode: nil, chunks: s.recentChunks, endurance: true)
                         }

@@ -20,6 +20,8 @@ struct PhonemeGuide: Codable, Identifiable, Hashable {
 struct PronToken: Codable, Hashable {
     let t: String
     let ipa: String?
+    /// 汉字近似读音（音译模式）
+    let zh: String?
     let stress: Bool
     let weak: Bool?
     let focus: Bool?
@@ -53,6 +55,28 @@ struct PronSentence: Codable, Hashable {
 struct PronWord: Codable, Hashable {
     let ipa: String
     let g: [String]
+    let zh: String?
+}
+
+/// 音标 / 汉字音译 切换（汉字只是近似，给不认识音标的人用）
+struct PronModeToggle: View {
+    @AppStorage("zhPron") private var zhPron = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Picker("读音显示", selection: $zhPron) {
+                Text("音标").tag(false)
+                Text("汉字音译").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .frame(maxWidth: 220)
+            if zhPron {
+                Text("汉字只是近似：th、v、r/l 这些音中文里没有，点单词看嘴型才是标准读法。")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+        }
+    }
 }
 
 struct PronunciationData: Codable {
@@ -93,6 +117,7 @@ struct PronLineView: View {
     var showNotes = true
 
     @State private var selected: WordRef?
+    @AppStorage("zhPron") private var zhPron = false
 
     var body: some View {
         if let sentence = library.pron.sentences[key] {
@@ -109,9 +134,15 @@ struct PronLineView: View {
                                         .font(token.stress ? .body.bold() : .callout)
                                         .foregroundStyle(token.stress ? Color.primary : Color.secondary)
                                         .underline(token.focus == true, color: .blue)
-                                    Text(token.ipa.map { "/\($0)/" } ?? " ")
-                                        .font(.caption2)
-                                        .foregroundStyle(token.weak == true ? Color.orange : Color.secondary)
+                                    if zhPron {
+                                        Text(token.zh ?? " ")
+                                            .font(.caption.bold())
+                                            .foregroundStyle(Color.orange)
+                                    } else {
+                                        Text(token.ipa.map { "/\($0)/" } ?? " ")
+                                            .font(.caption2)
+                                            .foregroundStyle(token.weak == true ? Color.orange : Color.secondary)
+                                    }
                                 }
                                 .padding(.horizontal, 2)
                             }
@@ -158,6 +189,9 @@ struct WordGuideSheet: View {
                             Text(key).font(.title.bold())
                             if let info {
                                 Text("/\(info.ipa)/").font(.title3).foregroundStyle(.secondary)
+                                if let zh = info.zh {
+                                    Text("汉字近似：\(zh)").font(.subheadline.bold()).foregroundStyle(.orange)
+                                }
                             }
                         }
                         Spacer()

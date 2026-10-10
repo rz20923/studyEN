@@ -144,6 +144,7 @@ struct ChunkAnswerView: View {
 
             DisclosureGroup(isExpanded: $showPron) {
                 VStack(alignment: .leading, spacing: 12) {
+                    PronModeToggle()
                     PronLineView(key: chunk.id + ":p", showNotes: false)
                     PronLineView(key: chunk.id)
                 }
@@ -298,7 +299,8 @@ struct PermissionDeniedView: View {
 }
 
 enum StepState {
-    case locked, active, done
+    /// skip：今天没有这一步的内容（比如第 1 天没有要复习的）
+    case locked, active, done, skip
 }
 
 struct StepRow: View {
@@ -306,6 +308,8 @@ struct StepRow: View {
     let title: String
     let detail: String
     let state: StepState
+    /// 完成后还能点进去加练（热身、耐力）
+    var tappableWhenDone = false
     let action: () -> Void
 
     private var icon: String {
@@ -313,16 +317,19 @@ struct StepRow: View {
         case .locked: return "lock.fill"
         case .active: return "\(number).circle.fill"
         case .done: return "checkmark.circle.fill"
+        case .skip: return "minus.circle.fill"
         }
     }
 
     private var color: Color {
         switch state {
-        case .locked: return .gray
+        case .locked, .skip: return .gray
         case .active: return .blue
         case .done: return .green
         }
     }
+
+    private var enabled: Bool { state == .active || (state == .done && tappableWhenDone) }
 
     var body: some View {
         Button(action: action) {
@@ -342,12 +349,19 @@ struct StepRow: View {
                 Spacer()
                 if state == .active {
                     Image(systemName: "chevron.right").foregroundStyle(.secondary)
+                } else if state == .done && tappableWhenDone {
+                    Text("加练")
+                        .font(.caption.bold())
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.gray.opacity(0.15), in: Capsule())
                 }
             }
             .padding()
             .background(.background.secondary, in: RoundedRectangle(cornerRadius: 14))
         }
         .buttonStyle(.plain)
-        .disabled(state != .active)
+        .disabled(!enabled)
+        .opacity(state == .locked ? 0.6 : (state == .skip ? 0.75 : 1))
     }
 }

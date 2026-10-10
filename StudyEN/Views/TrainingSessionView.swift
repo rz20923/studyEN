@@ -3,6 +3,8 @@ import SwiftData
 
 enum TrainingMode {
     case learn, review, exam, phaseExam
+    /// 加练：完成后的热身再练一组，不改复习计划、不影响打卡
+    case extra
 
     var title: String {
         switch self {
@@ -10,6 +12,7 @@ enum TrainingMode {
         case .review: return "开口复习"
         case .exam: return "每日闯关"
         case .phaseExam: return "第一阶段总考"
+        case .extra: return "加练 · 开口复习"
         }
     }
 
@@ -124,7 +127,7 @@ struct TrainingSessionView: View {
                 switch mode {
                 case .learn: Speaker.shared.speak(chunk.example)
                 case .exam, .phaseExam: toggleRecording(chunk)  // 闯关自动收音并计时
-                case .review: break
+                case .review, .extra: break
                 }
             }
         } else if let result = examResult {
@@ -329,6 +332,8 @@ struct TrainingSessionView: View {
             }
             context.studyDay().reviews += 1
             if !ok { queue.append(chunk) }
+        case .extra:
+            if !ok { queue.append(chunk) }
         case .exam, .phaseExam:
             answers[index] = ok
             if !ok { wrong.append(chunk) }
@@ -512,7 +517,7 @@ struct TrainingSessionView: View {
                     .font(.system(size: 64))
                     .foregroundStyle(.green)
                 Text("这一步完成了").font(.title.bold())
-                Text(mode == .learn ? "下一步：语序造句" : (mode == .review ? "下一步：学新语块" : "下一步：达标测试"))
+                Text(mode == .learn ? "下一步：语序造句" : (mode == .review ? "下一步：学新语块" : (mode == .extra ? "加练完成，不影响复习计划和打卡" : "下一步：达标测试")))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Spacer()
