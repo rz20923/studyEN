@@ -305,6 +305,71 @@ textarea { min-height: 140px; }
 .chip.p { color: var(--purple); background: color-mix(in srgb, var(--purple) 12%, transparent); font-weight: 800; }
 .curve { width: 100%; height: 180px; }
 
+/* ---------- 今天：独占式训练课 ---------- */
+.hero .hero-day { margin: 10px 0 18px; }
+.stepper { display: flex; align-items: flex-start; }
+.stepper .edge { flex: 1; height: 2px; background: rgba(255, 255, 255, .16); margin-top: 13px; }
+.node { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 44px; }
+.node i { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 13px; font-weight: 800;
+  background: rgba(255, 255, 255, .1); color: rgba(255, 255, 255, .55); }
+.node span { font-size: 11px; color: rgba(255, 255, 255, .55); font-weight: 700; }
+.node.done i { background: var(--volt); color: #1A2E05; }
+.node.cur i { background: #fff; color: var(--hero); box-shadow: 0 0 0 4px rgba(198, 244, 50, .35); }
+.node.cur span { color: #fff; }
+.focus { background: var(--card); border-radius: 24px; padding: 26px 22px 22px; margin: 16px 0; box-shadow: var(--shadow); text-align: center; }
+.focus-icon { width: 60px; height: 60px; border-radius: 18px; margin: 0 auto 12px; display: grid; place-items: center;
+  color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); }
+.focus-cat { font-size: 13px; font-weight: 800; }
+.focus h2 { font-size: 24px; margin: 4px 0 2px; }
+.focus p { margin: 4px 0 18px; }
+.mini-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.mini-stats div { background: var(--card); border-radius: 16px; padding: 12px; text-align: center; box-shadow: var(--shadow); }
+.mini-stats b { display: block; font-size: 18px; font-weight: 800; }
+.mini-stats span { font-size: 12px; color: var(--muted); }
+
+/* ---------- 学习卡片 + 例句阅读器 ---------- */
+.learn-card .big { font-size: 28px; }
+.phrase-row { display: flex; align-items: flex-start; gap: 10px; }
+.meaning { font-size: 16px; color: var(--muted); margin-top: 2px; }
+.reader { background: var(--card-2); border-radius: 18px; padding: 12px; margin: 14px 0 6px; }
+.reader-head { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+.seg.tiny { display: inline-grid; grid-template-columns: auto auto; padding: 2px; border-radius: 10px; }
+.seg.tiny button { padding: 4px 10px; font-size: 12px; }
+.groups { display: flex; flex-wrap: wrap; gap: 8px; }
+.grp { border: 0; font: inherit; cursor: pointer; display: inline-flex; flex-direction: column; align-items: flex-start;
+  padding: 8px 10px 6px; border-radius: 14px; text-align: left; transition: transform .1s; }
+.grp:active { transform: scale(.97); }
+.grp-w { display: flex; align-items: flex-end; flex-wrap: wrap; }
+.grp-role { font-size: 10px; font-weight: 800; margin-top: 2px; opacity: .85; }
+.w { display: inline-flex; flex-direction: column; align-items: center; }
+.w b { font-size: 17px; font-weight: 500; color: var(--text); line-height: 1.25; }
+.w.st b { font-weight: 800; }
+.w.wk b { color: var(--muted); font-size: 15px; }
+.w.fc b { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.w small { font-size: 10.5px; color: var(--muted); font-weight: 500; white-space: nowrap; }
+.w small.zh { color: var(--accent); font-weight: 700; font-size: 12px; }
+.w.wk small { color: var(--orange); }
+.lnk { font-style: normal; color: var(--accent); font-weight: 900; align-self: flex-start; margin: 0 1px; line-height: 1.3; }
+.gap { width: 6px; }
+.reader-zh { color: var(--muted); font-size: 14px; margin: 10px 2px 0; }
+.hard { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.hard > span { font-size: 12px; font-weight: 800; color: var(--muted); }
+.hw { border: 0; background: var(--card); border-radius: 10px; padding: 4px 9px; cursor: pointer; display: inline-flex; gap: 6px; align-items: baseline; }
+.hw b { font-size: 14px; }
+.hw span { font-size: 11px; color: var(--accent); font-weight: 700; }
+.progress-line { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); font-weight: 700; margin-top: 12px; }
+.task { font-size: 16px; margin: 10px 0 0; }
+.task b { color: var(--accent); }
+
+/* ---------- 随手练 ---------- */
+.mode-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
+.mode { border: 0; background: var(--card); border-radius: 20px; padding: 22px 8px; cursor: pointer; box-shadow: var(--shadow);
+  display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--text); transition: transform .1s; }
+.mode:not(:disabled):hover { transform: translateY(-2px); }
+.mode:disabled { opacity: .5; cursor: default; }
+.mode span { font-size: 30px; }
+.mode b { font-size: 15px; }
+
 /* ---------- 底部导航 ---------- */
 #tabs {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
@@ -318,3 +383,5 @@ textarea { min-height: 140px; }
 }
 #tabs button.on { color: var(--accent); }
 #tabs button.on .ic { stroke-width: 2.4; }
+
+.grp.r-X, .grp.r-J { background: var(--card); color: var(--muted); }
