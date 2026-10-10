@@ -241,6 +241,48 @@ enum PhraseMatcher {
         }
     }
 
+    /// 逐词发音反馈：按顺序对齐例句和识别结果，没对上的词标为 false
+    static func wordFeedback(_ sentence: String, transcript: String) -> [(text: String, ok: Bool)] {
+        let tokens = sentence.split(separator: " ").map(String.init)
+        var target: [String] = [], owner: [Int] = []
+        for (i, token) in tokens.enumerated() {
+            for w in words(token) {
+                target.append(w)
+                owner.append(i)
+            }
+        }
+        let heard = words(transcript)
+        guard !target.isEmpty else { return tokens.map { (text: $0, ok: true) } }
+        var dp = Array(repeating: Array(repeating: 0, count: heard.count + 1), count: target.count + 1)
+        if !heard.isEmpty {
+            for i in 1...target.count {
+                for j in 1...heard.count {
+                    dp[i][j] = wordMatches(target[i - 1], heard[j - 1])
+                        ? dp[i - 1][j - 1] + 1
+                        : max(dp[i - 1][j], dp[i][j - 1])
+                }
+            }
+        }
+        var matched = Array(repeating: false, count: target.count)
+        var i = target.count, j = heard.count
+        while i > 0 && j > 0 {
+            if wordMatches(target[i - 1], heard[j - 1]) && dp[i][j] == dp[i - 1][j - 1] + 1 {
+                matched[i - 1] = true
+                i -= 1
+                j -= 1
+            } else if dp[i - 1][j] >= dp[i][j - 1] {
+                i -= 1
+            } else {
+                j -= 1
+            }
+        }
+        var ok = Array(repeating: true, count: tokens.count)
+        for k in target.indices where !matched[k] {
+            ok[owner[k]] = false
+        }
+        return tokens.indices.map { (text: tokens[$0], ok: ok[$0]) }
+    }
+
     /// 跟读判定：例句中按顺序读对的词占比（最长公共子序列）
     static func readingScore(_ sentence: String, transcript: String) -> Double {
         let target = words(sentence)

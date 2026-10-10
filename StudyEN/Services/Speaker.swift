@@ -25,7 +25,9 @@ enum AudioSessionConfig {
     static func activate() -> Bool {
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .duckOthers])
+            // allowBluetoothA2DP：连着蓝牙耳机时朗读走耳机；defaultToSpeaker 只在没接耳机时生效
+            try session.setCategory(.playAndRecord, mode: .default,
+                                    options: [.defaultToSpeaker, .allowBluetoothA2DP, .duckOthers])
             try session.setActive(true)
             return true
         } catch {

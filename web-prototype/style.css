@@ -136,6 +136,19 @@ ul.rules { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; 
 .r-T { color: #0e8a8a; background: color-mix(in srgb, #0e8a8a 12%, transparent); }
 .r-Q, .r-A, .r-L, .r-E { color: #b5487c; background: color-mix(in srgb, #b5487c 12%, transparent); }
 .r-F, .r-W, .r-R { color: #6b6bd6; background: color-mix(in srgb, #6b6bd6 12%, transparent); }
+.r-C { color: #c2410c; background: color-mix(in srgb, #c2410c 12%, transparent); }
+.r-J, .r-X { color: var(--muted); background: var(--card-2); }
+.segs .part { cursor: pointer; }
+.segs .part:active { transform: scale(.96); }
+.wordfb { font-size: 18px; font-weight: 600; line-height: 1.6; }
+.wordfb .ok { color: var(--green); }
+.wordfb .miss { color: var(--red); text-decoration: underline wavy; }
+.sheet-wrap { margin: 10px 0; }
+.sheet { display: grid; grid-template-columns: repeat(auto-fill, minmax(28px, 1fr)); gap: 4px; max-height: 124px; overflow-y: auto; margin-top: 6px; }
+.sheet i { font-style: normal; font-size: 11px; text-align: center; padding: 4px 0; border-radius: 5px; background: var(--card-2); color: var(--muted); }
+.sheet i.ok { background: var(--green); color: #fff; }
+.sheet i.no { background: var(--red); color: #fff; }
+.sheet i.cur { outline: 2px solid var(--blue); }
 .formula { font-weight: 800; letter-spacing: 1px; text-align: center; margin: 8px 0; }
 
 #tabs {

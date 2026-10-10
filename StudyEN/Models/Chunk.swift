@@ -27,6 +27,8 @@ struct Chunk: Codable, Identifiable, Hashable {
     let example: String
     let exampleZh: String
     let tip: String?
+    /// 例句按意群拆分并标好成分，用于分段跟读
+    let parts: [WordOrderDrill.Segment]?
 }
 
 /// 语序造句题：中文句子 + 按英文语序拆好的成分
@@ -60,6 +62,7 @@ enum SentenceRole {
         [
             "S": "主语", "V": "谓语", "O": "宾语", "M": "方式", "P": "地点", "T": "时间",
             "Q": "疑问词", "A": "助动词", "F": "频率副词", "L": "引导句", "E": "存在句", "W": "伴随", "R": "原因/目的",
+            "C": "表语", "J": "连接", "X": "插入语",
         ][role] ?? role
     }
 }

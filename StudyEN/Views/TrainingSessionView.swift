@@ -45,6 +45,8 @@ struct TrainingSessionView: View {
     @State private var examResult: ExamResult?
     /// 正在复习错题；复习完回到这个闯关模式重考
     @State private var retryExam: TrainingMode?
+    /// 答题卡：题号 -> 是否答对
+    @State private var answers: [Int: Bool] = [:]
     @State private var round = 0
 
     struct ExamResult {
@@ -134,6 +136,9 @@ struct TrainingSessionView: View {
 
     private func card(_ chunk: Chunk) -> some View {
         VStack(alignment: .leading, spacing: 18) {
+            if mode.isExam {
+                AnswerSheetView(count: queue.count, answers: answers, current: index)
+            }
             HStack {
                 KindTag(kind: chunk.kind)
                 Text(chunk.scene).font(.caption).foregroundStyle(.secondary)
@@ -178,6 +183,10 @@ struct TrainingSessionView: View {
                 Label("限时 \(Int(Plan.examAnswerSeconds)) 秒，脱口而出才算", systemImage: "timer")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+            }
+
+            if mode == .learn && readPasses < Plan.readAloudTimes && !speech.isRecording && !speech.transcript.isEmpty {
+                WordFeedbackView(sentence: chunk.example, transcript: speech.transcript)
             }
 
             if speech.isRecording || !speech.transcript.isEmpty {
@@ -321,6 +330,7 @@ struct TrainingSessionView: View {
             context.studyDay().reviews += 1
             if !ok { queue.append(chunk) }
         case .exam, .phaseExam:
+            answers[index] = ok
             if !ok { wrong.append(chunk) }
         case .learn:
             break
@@ -376,6 +386,7 @@ struct TrainingSessionView: View {
     private func retake(_ exam: TrainingMode) {
         mode = exam
         queue = examChunks.shuffled()
+        answers = [:]
         wrong = []
         examResult = nil
         retryExam = nil
@@ -434,6 +445,9 @@ struct TrainingSessionView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
             }
+
+            AnswerSheetView(count: queue.count, answers: answers)
+                .padding(.horizontal)
 
             if !result.wrong.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {

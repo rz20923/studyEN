@@ -104,6 +104,26 @@ function readingScore(sentence, text) {
       dp[i][j] = wordMatches(a[i - 1], b[j - 1]) ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
   return dp[a.length][b.length] / a.length;
 }
+// 逐词发音反馈：按顺序对齐例句和识别结果，没对上的词标红
+function wordFeedback(sentence, text) {
+  const tokens = sentence.split(/\s+/);
+  const tw = [], owner = [];
+  tokens.forEach((tok, i) => words(tok).forEach(w => { tw.push(w); owner.push(i); }));
+  const hw = words(text);
+  const dp = Array.from({ length: tw.length + 1 }, () => new Array(hw.length + 1).fill(0));
+  for (let i = 1; i <= tw.length; i++)
+    for (let j = 1; j <= hw.length; j++)
+      dp[i][j] = wordMatches(tw[i - 1], hw[j - 1]) ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+  const matched = new Array(tw.length).fill(false);
+  for (let i = tw.length, j = hw.length; i > 0 && j > 0;) {
+    if (wordMatches(tw[i - 1], hw[j - 1]) && dp[i][j] === dp[i - 1][j - 1] + 1) { matched[i - 1] = true; i--; j--; }
+    else if (dp[i - 1][j] >= dp[i][j - 1]) i--;
+    else j--;
+  }
+  const ok = tokens.map(() => true);
+  tw.forEach((_, k) => { if (!matched[k]) ok[owner[k]] = false; });
+  return tokens.map((t, i) => ({ t, ok: ok[i] }));
+}
 function isOwnSentence(text, c) {
   return matchesPhrase(c.phrase, text) && words(text).length >= PLAN.ownSentenceMinWords && readingScore(c.example, text) < 0.7;
 }
@@ -112,6 +132,7 @@ function isOwnSentence(text, c) {
 const ROLE_ZH = {
   S: '主语', V: '谓语', O: '宾语', M: '方式', P: '地点', T: '时间',
   Q: '疑问词', A: '助动词', F: '频率副词', L: '引导句', E: '存在句', W: '伴随', R: '原因/目的',
+  C: '表语', J: '连接', X: '插入语',
 };
 const ORDER_RULE = '中文状语往前挤，英文状语往后退';
 const PATTERN_TIP = {
@@ -185,6 +206,22 @@ const drillSentence = d => {
   const isQuestion = ['question', 'yesno'].includes(d.pattern) || (d.pattern === 'indirect' && /^(do|can|could|would) /.test(s));
   return s.charAt(0).toUpperCase() + s.slice(1) + (isQuestion ? '?' : '.');
 };
+// 例句按意群分段并标成分：点一段单独听
+function partsHTML(c) {
+  if (!c.parts) return '';
+  return `<div class="small muted" style="margin-top:10px">点任意一段单独听；分段读顺了，再连起来读整句</div>
+    <div class="segs">${c.parts.map(p => `<span class="r-${p.role} part" data-action="speak-part" data-text="${esc(p.en)}">${esc(p.en)}<small>${ROLE_ZH[p.role] || ''}</small></span>`).join('')}</div>`;
+}
+// 答题卡：每题一格，对=绿、错=红、当前题=蓝框
+function sheetHTML() {
+  const cells = S.queue.map((_, i) => {
+    const a = S.answers[i];
+    const cls = a === true ? 'ok' : a === false ? 'no' : (i === S.index && !S.result ? 'cur' : '');
+    return `<i class="${cls}">${i + 1}</i>`;
+  }).join('');
+  const done = S.answers.filter(x => x != null).length, right = S.answers.filter(x => x).length;
+  return `<div class="sheet-wrap"><div class="small muted">答题卡 · 已答 ${done}/${S.queue.length} · 对 ${right}</div><div class="sheet">${cells}</div></div>`;
+}
 const segsHTML = d => `<div class="segs">${d.segments.map(x => `<span class="r-${x.role}">${esc(x.en)}<small>${ROLE_ZH[x.role]}</small></span>`).join('')}</div>`;
 function orderLessonHTML() {
   const ex = DRILLS[0];
@@ -380,7 +417,7 @@ function startSession(mode) {
 
   if (mode === 'phaseExam') recordPhaseAttempt();
   S = { mode, queue: isExamMode(mode) ? shuffle(chunks) : chunks.slice(), index: 0, wrong: [], result: null,
-    examChunks: chunks, retryExam: null,
+    examChunks: chunks, retryExam: null, answers: [],
     lesson: mode === 'order' && Object.keys(store.drills).length === 0 };
   resetCard();
   render();
@@ -409,6 +446,7 @@ function retake() {
   S.retryExam = null;
   if (S.mode === 'phaseExam') recordPhaseAttempt();
   S.queue = shuffle(S.examChunks);
+  S.answers = [];
   S.wrong = [];
   S.result = null;
   S.index = 0;
@@ -503,8 +541,9 @@ function markResult(c, ok) {
     if (p) applySRS(ok ? 'good' : 'again', p);
     studyDay().reviews++;
     if (!ok) S.queue.push(c);
-  } else if (isExamMode(S.mode) && !ok) {
-    S.wrong.push(c);
+  } else if (isExamMode(S.mode)) {
+    S.answers[S.index] = ok;
+    if (!ok) S.wrong.push(c);
   }
   saveStore();
   render();
@@ -637,6 +676,7 @@ function renderSession() {
       <div class="center" style="margin-top:32px"><div style="font-size:56px">${r.passed ? '✅' : '❌'}</div><h1>${title}</h1>
       <p class="muted">正确率 ${pct(r.score)}%（达标线 ${pct(passRate())}%）</p>
       ${r.passed ? '' : `<p class="feedback">只差 ${gap}%，复习完这 ${r.wrong.length} 个错题就能再冲一次</p>`}</div>
+      ${sheetHTML()}
       ${r.wrong.length ? `<div class="card"><h2>错题</h2>${r.wrong.map(c => `<div class="row small"><b class="grow">${esc(c.phrase)}</b><span class="muted">${esc(c.meaning)}</span></div>`).join('')}</div>` : ''}
       <p class="muted center small">${msg}</p>
       <div class="controls">${r.passed ? '<button class="primary" data-action="exit">完成</button>'
@@ -667,8 +707,8 @@ function renderSession() {
   const body = showAnswer ? `
       <div class="row"><span class="big grow">${esc(c.phrase)}</span>${speakBtn(c.phrase)}</div>
       <div style="font-size:18px">${esc(c.meaning)} ${c.replaces ? `<span class="strike">≈ ${esc(c.replaces)}</span>` : ''}</div>
-      <div class="example"><div class="row"><b class="grow">${esc(c.example)}</b>${speakBtn(c.example, true)}</div>
-        <div class="muted">${esc(c.exampleZh)}</div></div>
+      <div class="example"><div class="row"><b class="grow">${esc(c.example)}</b>${speakBtn(c.example)}${speakBtn(c.example, true)}</div>
+        <div class="muted">${esc(c.exampleZh)}</div>${partsHTML(c)}</div>
       ${c.tip ? `<div class="muted small">💡 ${esc(c.tip)}</div>` : ''}`
     : `
       <div class="big">${esc(c.meaning)}</div>
@@ -685,6 +725,10 @@ function renderSession() {
     }
   }
   if (isExamMode(S.mode) && !S.revealed) extra += `<p class="muted small">⏱ 限时 ${PLAN.examAnswerSeconds} 秒，脱口而出才算${store.dev.typeMode ? '（键盘模式不计时）' : ''}</p>`;
+  if (S.mode === 'learn' && S.readPasses < PLAN.readAloudTimes && S.transcript && !S.recording) {
+    extra += `<div class="small muted" style="margin-top:8px">发音反馈（红色 = 没读出来或没读清，点上面对应的那一段再听一遍）：</div>
+      <div class="wordfb">${wordFeedback(c.example, S.transcript).map(x => `<span class="${x.ok ? 'ok' : 'miss'}">${esc(x.t)}</span>`).join(' ')}</div>`;
+  }
   if (S.recording || S.transcript) extra += `<div class="small muted">听到的：</div><div class="heard">${esc(S.transcript || '…')}</div>`;
   if (S.feedback) extra += `<div class="feedback">${esc(S.feedback)}</div>`;
 
@@ -703,7 +747,7 @@ function renderSession() {
     controls = answerInput('说出英文') + `<button class="link" data-action="giveup">想不起来，看答案</button>`;
   }
 
-  $app.innerHTML = `${top}
+  $app.innerHTML = `${top}${isExamMode(S.mode) ? sheetHTML() : ''}
     <div class="card"><div class="row small">${kindTag(c)}<span class="muted">${esc(c.scene)}</span></div>
       <div style="margin-top:12px">${body}</div>${extra}</div>
     <div class="controls">${controls}</div>`;
@@ -850,6 +894,7 @@ document.addEventListener('click', e => {
   if (a === 'tab') { tab = el.dataset.tab; $app.innerHTML = ''; render(); }
   else if (a === 'start') startSession(el.dataset.mode);
   else if (a === 'speak') speak(el.dataset.text, !!el.dataset.slow);
+  else if (a === 'speak-part') speak(el.dataset.text, true);
   else if (a === 'record') { if (S.recording) stopListening(true); else startListening(); }
   else if (a === 'submit-typed') submitTyped();
   else if (a === 'giveup') { stopListening(false); markResult(current(), false); }

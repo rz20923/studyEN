@@ -248,7 +248,7 @@ struct SegmentsView: View {
     var body: some View {
         FlowLayout(spacing: 6) {
             ForEach(Array(drill.segments.enumerated()), id: \.offset) { _, segment in
-                let color = roleColor(segment.role)
+                let color = SentenceRole.color(segment.role)
                 VStack(spacing: 2) {
                     Text(segment.en).font(.subheadline.bold())
                     Text(SentenceRole.name(segment.role)).font(.caption2)
@@ -258,19 +258,6 @@ struct SegmentsView: View {
                 .foregroundStyle(color)
                 .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
             }
-        }
-    }
-
-    private func roleColor(_ role: String) -> Color {
-        switch role {
-        case "S": return .blue
-        case "V": return .red
-        case "O": return .orange
-        case "M": return .purple
-        case "P": return .green
-        case "T": return .teal
-        case "Q", "A", "L", "E": return .pink
-        default: return .indigo
         }
     }
 }

@@ -133,6 +133,10 @@ struct ChunkAnswerView: View {
                     SpeakButton(text: chunk.example, slow: true)
                 }
                 Text(chunk.exampleZh).foregroundStyle(.secondary)
+                if let parts = chunk.parts {
+                    PartsView(parts: parts)
+                        .padding(.top, 4)
+                }
             }
             .padding()
             .background(.background, in: RoundedRectangle(cornerRadius: 12))
@@ -141,6 +145,112 @@ struct ChunkAnswerView: View {
                 Label(tip, systemImage: "lightbulb")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+extension SentenceRole {
+    static func color(_ role: String) -> Color {
+        switch role {
+        case "S": return .blue
+        case "V": return .red
+        case "O": return .orange
+        case "M": return .purple
+        case "P": return .green
+        case "T": return .teal
+        case "C": return .brown
+        case "J", "X": return .gray
+        case "Q", "A", "L", "E": return .pink
+        default: return .indigo
+        }
+    }
+}
+
+/// 例句按意群分段并标成分：点一段单独慢速听，分段读顺了再连起来读整句
+struct PartsView: View {
+    let parts: [WordOrderDrill.Segment]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("点任意一段单独听；分段读顺了，再连起来读整句")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            FlowLayout(spacing: 6) {
+                ForEach(Array(parts.enumerated()), id: \.offset) { _, part in
+                    let color = SentenceRole.color(part.role)
+                    Button {
+                        Speaker.shared.speak(part.en, slow: true)
+                    } label: {
+                        VStack(spacing: 2) {
+                            Text(part.en).font(.subheadline.bold())
+                            Text(SentenceRole.name(part.role)).font(.caption2)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .foregroundStyle(color)
+                        .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+}
+
+/// 逐词发音反馈：红色 = 没读出来或没读清
+struct WordFeedbackView: View {
+    let sentence: String
+    let transcript: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("发音反馈（红色 = 没读出来或没读清，点上面对应的那一段再听一遍）")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            FlowLayout(spacing: 5) {
+                ForEach(Array(PhraseMatcher.wordFeedback(sentence, transcript: transcript).enumerated()), id: \.offset) { _, item in
+                    Text(item.text)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(item.ok ? Color.green : Color.red)
+                        .underline(!item.ok)
+                }
+            }
+        }
+    }
+}
+
+/// 答题卡：每题一格，对=绿、错=红、当前题=蓝框
+struct AnswerSheetView: View {
+    let count: Int
+    let answers: [Int: Bool]
+    var current: Int?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("答题卡 · 已答 \(answers.count)/\(count) · 对 \(answers.values.filter { $0 }.count)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if count > 40 {
+                ScrollView { grid }.frame(height: 124)
+            } else {
+                grid
+            }
+        }
+    }
+
+    private var grid: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 28), spacing: 4)], spacing: 4) {
+            ForEach(0..<count, id: \.self) { i in
+                let state = answers[i]
+                Text("\(i + 1)")
+                    .font(.caption2.monospacedDigit())
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+                    .foregroundStyle(state == nil ? Color.secondary : Color.white)
+                    .background(state == true ? Color.green : (state == false ? Color.red : Color.gray.opacity(0.15)),
+                                in: RoundedRectangle(cornerRadius: 5))
+                    .overlay(RoundedRectangle(cornerRadius: 5).stroke(i == current ? Color.blue : Color.clear, lineWidth: 2))
             }
         }
     }
