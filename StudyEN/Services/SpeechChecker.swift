@@ -8,16 +8,21 @@ final class SpeechChecker {
     private(set) var isRecording = false
     private(set) var transcript = ""
 
-    /// 每次识别结果更新时回调（用于实时判定达标）
+    /// 识别结果更新时回调。settle > 0 时，只在你停顿 settle 秒（说完一句）后才回调
     @ObservationIgnored var onTranscript: ((String) -> Void)?
-    /// 录音结束（超时 / 手动停止 / 识别结束）且未被判定达标时回调
+    /// 录音结束（超时 / 手动停止 / 说完后停顿太久）且未被判定达标时回调
     @ObservationIgnored var onStop: ((String) -> Void)?
+    /// 停顿多久算“说完一句”再判定；0 = 每次结果都立刻判定
+    @ObservationIgnored var settle: TimeInterval = 0.9
+    /// 开口后静默多久自动结束这一次
+    @ObservationIgnored var stopAfterSilence: TimeInterval = 2.5
 
     @ObservationIgnored private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     @ObservationIgnored private let engine = AVAudioEngine()
     @ObservationIgnored private var request: SFSpeechAudioBufferRecognitionRequest?
     @ObservationIgnored private var task: SFSpeechRecognitionTask?
     @ObservationIgnored private var sessionID = 0
+    @ObservationIgnored private var changeID = 0
 
     static func requestPermissions() async -> Bool {
         let speechOK = await withCheckedContinuation { continuation in
@@ -27,18 +32,20 @@ final class SpeechChecker {
         return await AVAudioApplication.requestRecordPermission()
     }
 
+    /// hints：期望听到的句子，交给识别引擎做偏向，能明显提高识别准确率
     @discardableResult
-    func start(hints: [String] = [], timeout: TimeInterval = 8) -> Bool {
+    func start(hints: [String] = [], timeout: TimeInterval = 12) -> Bool {
         stop(notify: false)
         transcript = ""
+        Speaker.shared.stop()
         guard let recognizer, recognizer.isAvailable, AudioSessionConfig.activate() else { return false }
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
-        request.contextualStrings = hints
-        if recognizer.supportsOnDeviceRecognition {
-            request.requiresOnDeviceRecognition = true
-        }
+        request.taskHint = .dictation
+        request.contextualStrings = hints.flatMap { [$0] + $0.split(separator: " ").map(String.init) }
+        // 不强制设备端识别：联网时用服务器识别，准确率明显更高；没网时系统自动用设备端
+        request.requiresOnDeviceRecognition = false
 
         let input = engine.inputNode
         input.installTap(onBus: 0, bufferSize: 1024, format: input.outputFormat(forBus: 0)) { buffer, _ in
@@ -61,8 +68,14 @@ final class SpeechChecker {
             DispatchQueue.main.async {
                 guard let self, self.isRecording, self.sessionID == id else { return }
                 if let result {
-                    self.transcript = result.bestTranscription.formattedString
-                    self.onTranscript?(self.transcript)
+                    let text = result.bestTranscription.formattedString
+                    if text != self.transcript {
+                        self.transcript = text
+                        self.scheduleSettle(id: id)
+                    }
+                    if result.isFinal {
+                        self.onTranscript?(self.transcript)
+                    }
                 }
                 if self.isRecording, error != nil || (result?.isFinal ?? false) {
                     self.stop()
@@ -75,6 +88,22 @@ final class SpeechChecker {
             self.stop()
         }
         return true
+    }
+
+    /// 文本不再变化 settle 秒后判定；再静默一会儿就自动结束
+    private func scheduleSettle(id: Int) {
+        changeID += 1
+        let change = changeID
+        let text = transcript
+        if settle <= 0 { onTranscript?(text) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(settle, 0.05)) { [weak self] in
+            guard let self, self.isRecording, self.sessionID == id, self.changeID == change else { return }
+            if self.settle > 0 { self.onTranscript?(text) }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + stopAfterSilence) { [weak self] in
+            guard let self, self.isRecording, self.sessionID == id, self.changeID == change else { return }
+            self.stop()
+        }
     }
 
     func stop(notify: Bool = true) {
@@ -222,9 +251,25 @@ enum PhraseMatcher {
     }
 
     static func wordMatches(_ target: String, _ heard: String) -> Bool {
-        heard == target
-            || (target.count >= 3 && heard.hasPrefix(target))
-            || (irregular[target]?.contains(heard) ?? false)
+        if heard == target { return true }
+        if target.count >= 3 && heard.hasPrefix(target) { return true }
+        if irregular[target]?.contains(heard) ?? false { return true }
+        // 识别常差一两个字母（brings→bring、designer→designers），按长度容错
+        let limit = target.count >= 7 ? 2 : (target.count >= 4 ? 1 : 0)
+        return limit > 0 && abs(target.count - heard.count) <= limit && editDistance(target, heard) <= limit
+    }
+
+    private static func editDistance(_ a: String, _ b: String) -> Int {
+        let x = Array(a), y = Array(b)
+        var prev = Array(0...y.count)
+        for i in 1...max(x.count, 1) where !x.isEmpty {
+            var cur = [i] + Array(repeating: 0, count: y.count)
+            for j in 1...max(y.count, 1) where !y.isEmpty {
+                cur[j] = x[i - 1] == y[j - 1] ? prev[j - 1] : 1 + min(prev[j - 1], prev[j], cur[j - 1])
+            }
+            prev = cur
+        }
+        return prev[y.count]
     }
 
     /// 回想判定：语块任一写法（用 / 分隔）的词按顺序出现在识别结果中

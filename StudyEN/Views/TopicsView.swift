@@ -139,6 +139,8 @@ struct MeView: View {
     @Query(sort: \EnduranceSet.date) private var sets: [EnduranceSet]
     @Query private var notes: [StuckNote]
     @AppStorage("zhPron") private var zhPron = false
+    @AppStorage(UserName.key) private var name = ""
+    @State private var editName = false
 
     var body: some View {
         let total = sets.map(\.speakingSeconds).reduce(0, +)
@@ -219,6 +221,9 @@ struct MeView: View {
                         Divider()
                         NavigationLink { StuckNotesView() } label: { row("卡壳本", "\(notes.count) 条") }
                         Divider()
+                        Button { editName = true } label: { row("英文名", name.isEmpty ? "未设置" : name) }
+                            .buttonStyle(.plain)
+                        Divider()
                         Toggle("读音显示汉字音译", isOn: $zhPron).padding(.vertical, 12).tint(Theme.accent)
                         Divider()
                         row("没达标提醒", "20:00 / 22:00")
@@ -228,6 +233,7 @@ struct MeView: View {
                     .background(Color.white, in: RoundedRectangle(cornerRadius: 24))
                 }
                 .padding(20)
+                .sheet(isPresented: $editName) { NameOnboardingView() }
             }
             .background(Theme.ground)
             .navigationTitle("我的")

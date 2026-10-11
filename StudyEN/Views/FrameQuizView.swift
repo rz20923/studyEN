@@ -86,7 +86,7 @@ struct FrameQuizView: View {
 
                 if revealed {
                     VStack(alignment: .leading, spacing: 10) {
-                        TokenLine(key: answerKey(item), range: 0..<item.prompt.answer.split(separator: " ").count, size: 20)
+                        TokenLine(key: answerKey(item), range: 0..<item.prompt.answer.split(separator: " ").count, size: 20, fallback: item.prompt.answer)
                         HStack {
                             if let result { CheckChips(frameOK: result.frameOK, slotOK: result.slotOK) }
                             Spacer()
@@ -160,7 +160,7 @@ struct FrameQuizView: View {
             }
         }
         speech.onStop = { text in failed(item, transcript: text) }
-        if !speech.start(timeout: mode == .exam ? 10 : 12) {
+        if !speech.start(hints: [item.prompt.answer], timeout: mode == .exam ? 10 : 12) {
             feedback = "语音识别暂不可用，请稍后再试"
         }
     }

@@ -78,7 +78,7 @@ struct BossView: View {
                         .overlay(RoundedRectangle(cornerRadius: 18).stroke(Theme.line, lineWidth: 1.5))
 
                         if showHint || mustRead {
-                            Label(mustRead ? t.answer : unit(t).skeleton, systemImage: "lightbulb")
+                            Label(mustRead ? UserName.apply(t.answer) : unit(t).skeleton, systemImage: "lightbulb")
                                 .font(Theme.en(15, .semibold))
                                 .foregroundStyle(Theme.accentDark)
                                 .padding(.horizontal, 14)
@@ -169,7 +169,7 @@ struct BossView: View {
         let u = unit(t)
         speech.onTranscript = { text in
             let ok = mustRead
-                ? PhraseMatcher.readingScore(t.answer, transcript: text) >= 0.6
+                ? PhraseMatcher.readingScore(UserName.apply(t.answer), transcript: text) >= 0.6
                 : FrameMatcher.check(unit: u, answer: nil, transcript: text).frameOK
             if ok {
                 speech.stop(notify: false)
@@ -188,7 +188,7 @@ struct BossView: View {
                 feedback = "试试用这个框架：\(u.skeleton)"
             }
         }
-        if !speech.start(timeout: 12) { feedback = "语音识别暂不可用" }
+        if !speech.start(hints: [UserName.apply(t.answer)], timeout: 12) { feedback = "语音识别暂不可用" }
     }
 
     private func complete() {

@@ -17,6 +17,9 @@ struct StudyENApp: App {
 
 /// 三个标签：训练（打开即练）/ 课题 / 我的
 struct RootView: View {
+    @AppStorage(UserName.key) private var name = ""
+    @State private var askName = false
+
     var body: some View {
         TabView {
             TrainView()
@@ -27,5 +30,7 @@ struct RootView: View {
                 .tabItem { Label("我的", systemImage: "person") }
         }
         .tint(Theme.ink)
+        .onAppear { askName = name.trimmingCharacters(in: .whitespaces).isEmpty }
+        .fullScreenCover(isPresented: $askName) { NameOnboardingView() }
     }
 }

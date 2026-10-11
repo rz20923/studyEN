@@ -1,22 +1,26 @@
 import SwiftUI
 import SwiftData
 
-/// 一个框架单元：听 → 读 → 说
+/// 一个框架单元：听（够 5 遍 + 答意思）→ 读（分块跟读 + 凭记忆换词说）→ 说
 struct UnitFlowView: View {
     let topic: Topic
     let unit: TopicUnit
 
     @Environment(\.modelContext) private var context
+    @Environment(ChunkLibrary.self) private var library
     @State private var speech = SpeechChecker()
     @State private var stage = 0
 
     // 听
     @State private var plays = 0
-    @State private var revealed = false
+    @State private var choices: [String] = []
+    @State private var picked: String?
+    @State private var understood = false
 
     // 读
     @State private var readStep = 0
     @State private var fullFeedback: [Bool]?
+    @State private var howTo: HowTo?
 
     // 说
     @State private var promptIndex = 0
@@ -26,6 +30,14 @@ struct UnitFlowView: View {
     @State private var promptDone = false
 
     @State private var feedback: String?
+
+    static let requiredPlays = 5
+
+    private struct HowTo: Identifiable {
+        let id = UUID()
+        let range: Range<Int>
+        let text: String
+    }
 
     private enum ReadStep: Hashable {
         case part(Range<Int>, String, Bool)
@@ -43,9 +55,11 @@ struct UnitFlowView: View {
         if !r.slot.isEmpty { steps.append(.part(r.slot, text(r.slot), true)) }
         if r.after.count >= 2 { steps.append(.part(r.after, text(r.after), false)) }
         steps += [.whole, .whole]
+        // 换词说：例句以外的每个选项都说一遍，而且凭记忆说
         let slotText = text(r.slot).lowercased()
-        let option = unit.options.first { !slotText.contains($0.lowercased()) } ?? unit.options.last ?? ""
-        steps.append(.swap(option))
+        for option in unit.options where !slotText.contains(option.lowercased()) {
+            steps.append(.swap(option))
+        }
         return steps
     }
 
@@ -61,22 +75,43 @@ struct UnitFlowView: View {
             }
         }
         .onDisappear { speech.stop(notify: false) }
+        .sheet(item: $howTo) { h in ChunkHowToSheet(key: unit.id, range: h.range, text: h.text) }
     }
 
-    // MARK: - 听
+    // MARK: - 听：必须听够 5 遍，再回答意思
 
     private var listenView: some View {
         VStack(alignment: .leading, spacing: 0) {
             Spacer(minLength: 10)
-            Text("盲听 · 第 \(max(plays, 1)) 遍").font(.footnote.bold()).foregroundStyle(Theme.accent)
-            Text(revealed ? "现在对照着听" : "先只听，不看字").font(.system(size: 22, weight: .black)).padding(.top, 4)
-            Text("耳朵抓住加重的词就够了，小词会被吞掉").font(.subheadline).foregroundStyle(Theme.muted).padding(.top, 2)
+            Text("盲听 · 第 \(min(plays, Self.requiredPlays)) / \(Self.requiredPlays) 遍")
+                .font(.footnote.bold()).foregroundStyle(Theme.accent)
+            Text(plays < Self.requiredPlays ? "先只听，不看字" : (understood ? "对照着再听一遍" : "这句话是什么意思？"))
+                .font(.system(size: 22, weight: .black)).padding(.top, 4)
+            Text(plays < Self.requiredPlays ? "耳朵抓住加重的词就够了，小词会被吞掉" : "听够了，选出它的意思")
+                .font(.subheadline).foregroundStyle(Theme.muted).padding(.top, 2)
 
-            waveform.padding(.vertical, 28)
+            waveform.padding(.vertical, 22)
 
-            if revealed {
+            if understood {
                 TokenLine(key: unit.id, range: 0..<tokens.count, size: 22)
                 Text(unit.exampleZh).font(.subheadline).foregroundStyle(Theme.muted).padding(.top, 8)
+            } else if plays >= Self.requiredPlays {
+                VStack(spacing: 10) {
+                    ForEach(choices, id: \.self) { c in
+                        let right = c == unit.exampleZh
+                        Button {
+                            picked = c
+                            if right { understood = true } else { feedback = "不对，再听一遍想想" }
+                        } label: {
+                            Text(c).font(.body.weight(.medium))
+                                .foregroundStyle(picked == c ? .white : Theme.ink)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(14)
+                                .background(picked == c ? (right ? Theme.green : Color.red) : Color.white, in: RoundedRectangle(cornerRadius: 14))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             } else {
                 FlowLayout(spacing: 8) {
                     ForEach(Array(stressFlags.enumerated()), id: \.offset) { i, stressed in
@@ -87,36 +122,43 @@ struct UnitFlowView: View {
                 }
                 Text("橙色 = 重读的位置").font(.caption).foregroundStyle(Theme.faint).padding(.top, 10)
             }
+            if let feedback, !understood { Text(feedback).font(.subheadline.bold()).foregroundStyle(Theme.accentDark).padding(.top, 8) }
             Spacer()
             HStack(alignment: .center) {
-                RoundIconButton(systemName: "tortoise.fill", label: "慢速") {
-                    plays += 1
-                    Speaker.shared.speak(unit.example, slow: true)
-                }
+                RoundIconButton(systemName: "tortoise.fill", label: "慢速") { play(slow: true) }
                 Spacer()
-                Button {
-                    plays += 1
-                    Speaker.shared.speak(unit.example)
-                } label: {
+                Button { play(slow: false) } label: {
                     Image(systemName: "play.fill").font(.system(size: 28)).foregroundStyle(.white)
                         .frame(width: 80, height: 80).background(Theme.ink, in: Circle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("再听一遍")
                 Spacer()
-                if revealed {
-                    RoundIconButton(systemName: "arrow.right", label: "下一步：读") { stage = 1; playTarget() }
-                } else {
-                    RoundIconButton(systemName: "eye", label: "看文字") { revealed = true }
+                RoundIconButton(systemName: "arrow.right", label: "下一步：读") {
+                    feedback = nil
+                    stage = 1
+                    playTarget()
                 }
+                .opacity(understood ? 1 : 0.3)
+                .disabled(!understood)
             }
             .padding(.bottom, 20)
         }
         .padding(.horizontal, 24)
         .task {
-            plays = 1
-            Speaker.shared.speak(unit.example)
+            if choices.isEmpty {
+                let others = topic.units.filter { $0.id != unit.id }.map(\.exampleZh).shuffled().prefix(2)
+                choices = ([unit.exampleZh] + others).shuffled()
+            }
+            if plays == 0 { play(slow: false) }
         }
+    }
+
+    private func play(slow: Bool) {
+        plays += 1
+        feedback = nil
+        picked = nil
+        Speaker.shared.speak(unit.example, slow: slow)
     }
 
     private var stressFlags: [Bool] {
@@ -124,68 +166,63 @@ struct UnitFlowView: View {
         return tokens.indices.map { $0 < toks.count ? toks[$0].stress : true }
     }
 
-    @Environment(ChunkLibrary.self) private var library
-
     private var waveform: some View {
         HStack(alignment: .center, spacing: 5) {
             ForEach(Array(stressFlags.enumerated()), id: \.offset) { i, stressed in
                 ForEach(0..<3, id: \.self) { k in
                     Capsule()
                         .fill(stressed ? Theme.accent : Theme.ink)
-                        .frame(width: 5, height: CGFloat(stressed ? [52, 76, 44][k] : [16, 26, 14][k]) * (i % 2 == 0 ? 1 : 0.85))
+                        .frame(width: 5, height: CGFloat(stressed ? [44, 64, 36][k] : [14, 22, 12][k]) * (i % 2 == 0 ? 1 : 0.85))
                 }
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 90, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: 70, alignment: .leading)
         .accessibilityHidden(true)
     }
 
-    // MARK: - 读
+    // MARK: - 读：分块跟读 → 整句 ×2 → 凭记忆换词说
 
     private var currentRead: ReadStep { readSteps[min(readStep, readSteps.count - 1)] }
+    private var swapping: String? { if case .swap(let o) = currentRead { return o }; return nil }
 
     private var readView: some View {
         let r = unit.exampleRanges
-        let activeRange: Range<Int>? = {
-            if case .part(let range, _, _) = currentRead { return range }
-            return nil
-        }()
+        let activeRange: Range<Int>? = { if case .part(let range, _, _) = currentRead { return range }; return nil }()
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text(unit.intent).font(.caption.bold()).foregroundStyle(Theme.muted)
                 Spacer()
                 PronToggle()
             }
-            .padding(.top, 18)
+            .padding(.top, 16)
 
-            VStack(alignment: .leading, spacing: 14) {
-                FlowLayout(spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
+                if let option = swapping {
+                    // 凭记忆说：骨架藏起来，只给槽位的中文
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("凭记忆说整句，把槽位换成").font(.footnote).foregroundStyle(Theme.muted)
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            Text(unit.optionZh(option)).font(.system(size: 26, weight: .black)).foregroundStyle(Theme.accent)
+                            Text(option).font(Theme.en(16, .medium)).foregroundStyle(Theme.muted)
+                        }
+                        Text(unit.skeleton).font(Theme.en(18, .bold)).foregroundStyle(Theme.ink).blur(radius: 7)
+                            .accessibilityHidden(true)
+                    }
+                } else {
                     if !r.before.isEmpty { block(r.before, slot: false, active: activeRange == r.before) }
                     block(r.slot, slot: true, active: activeRange == r.slot)
                     if !r.after.isEmpty { block(r.after, slot: false, active: activeRange == r.after) }
+                    Text(unit.exampleZh).font(.subheadline).foregroundStyle(Theme.muted).padding(.top, 2)
                 }
-                Text(unit.exampleZh).font(.subheadline).foregroundStyle(Theme.muted)
             }
-            .padding(18)
+            .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.white, in: RoundedRectangle(cornerRadius: 24))
             .padding(.top, 10)
 
-            Text("槽位换着说").font(.subheadline.bold()).padding(.top, 18)
-            FlowLayout(spacing: 8) {
-                ForEach(unit.options, id: \.self) { option in
-                    let target: Bool = { if case .swap(let o) = currentRead { return o == option }; return false }()
-                    Button(option) { Speaker.shared.speak(unit.sentence(with: option)) }
-                        .font(Theme.en(15, .medium))
-                        .foregroundStyle(target ? Theme.accentDark : Theme.ink)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(Color.white, in: Capsule())
-                        .overlay(Capsule().stroke(target ? Theme.accent : Color(hex: 0xD9DCD4), lineWidth: 1.5))
-                        .buttonStyle(.plain)
-                }
+            if swapping == nil {
+                Text("点任意一块，看这一块怎么读").font(.caption).foregroundStyle(Theme.faint).padding(.top, 8)
             }
-            .padding(.top, 8)
 
             Spacer(minLength: 8)
             readProgress
@@ -194,11 +231,11 @@ struct UnitFlowView: View {
                 Text(speech.transcript.isEmpty ? "正在听…" : speech.transcript).font(Theme.en(15)).foregroundStyle(Theme.muted).padding(.top, 6)
             }
             HStack(spacing: 12) {
-                RoundIconButton(systemName: "speaker.wave.2.fill", label: "播放这一段", size: 56) { playTarget() }
+                RoundIconButton(systemName: "speaker.wave.2.fill", label: "播放", size: 56) { playTarget() }
                 Button { toggleRead() } label: {
                     HStack(spacing: 10) {
                         Image(systemName: speech.isRecording ? "waveform" : "mic.fill").foregroundStyle(speech.isRecording ? .white : Theme.accent)
-                        Text(speech.isRecording ? "正在听…点我结束" : readButtonTitle).font(.headline)
+                        Text(speech.isRecording ? "正在听…说完停一下" : readButtonTitle).font(.headline)
                     }
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, minHeight: 56)
@@ -206,7 +243,7 @@ struct UnitFlowView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.vertical, 16)
+            .padding(.vertical, 14)
         }
         .padding(.horizontal, 20)
     }
@@ -219,39 +256,48 @@ struct UnitFlowView: View {
             TokenLine(key: unit.id, range: range, size: 20,
                       color: slot ? .white : Theme.ink,
                       subColor: slot ? Theme.accentSoft : Theme.faint,
-                      feedback: fullFeedback.map { Array($0[range.clamped(to: 0..<$0.count)]) })
+                      feedback: fullFeedback.map { Array($0[range.clamped(to: 0..<$0.count)]) },
+                      tappable: false)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(slot ? Theme.accent : Theme.line, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(active ? Theme.ink : Color.clear, lineWidth: 2))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(slot ? Theme.accent : Theme.line, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(active ? Theme.ink : Color.clear, lineWidth: 2))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            howTo = HowTo(range: range, text: tokens[range].joined(separator: " "))
+        }
     }
 
     private var readProgress: some View {
-        HStack(spacing: 6) {
-            ForEach(Array(readSteps.enumerated()), id: \.offset) { i, step in
-                let label: String = {
-                    switch step {
-                    case .part(_, _, let slot): return slot ? "槽位" : "第 \(i + 1) 段"
-                    case .whole: return "整句"
-                    case .swap: return "换词说"
-                    }
-                }()
-                Text(i < readStep ? "✓ \(label)" : label)
-                    .font(.caption.bold())
-                    .foregroundStyle(i <= readStep ? Color.white : Theme.muted)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 5)
-                    .background(i < readStep ? Theme.ink : (i == readStep ? Theme.accent : Theme.chip), in: Capsule())
-            }
+        let steps = readSteps
+        let partCount = steps.filter { if case .part = $0 { return true }; return false }.count
+        let swapCount = steps.count - partCount - 2
+        let doneParts = min(readStep, partCount)
+        let doneWhole = min(max(readStep - partCount, 0), 2)
+        let doneSwap = max(readStep - partCount - 2, 0)
+        return HStack(spacing: 6) {
+            progressChip("分块 \(doneParts)/\(partCount)", done: doneParts == partCount, current: readStep < partCount)
+            progressChip("整句 \(doneWhole)/2", done: doneWhole == 2, current: readStep >= partCount && readStep < partCount + 2)
+            progressChip("换词 \(doneSwap)/\(swapCount)", done: false, current: readStep >= partCount + 2)
         }
+    }
+
+    private func progressChip(_ text: String, done: Bool, current: Bool) -> some View {
+        Text(done ? "✓ \(text)" : text)
+            .font(.caption.bold())
+            .foregroundStyle(done || current ? Color.white : Theme.muted)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(done ? Theme.ink : (current ? Theme.accent : Theme.chip), in: Capsule())
     }
 
     private var readButtonTitle: String {
         switch currentRead {
-        case .part: return "跟读这一段"
+        case .part: return "跟读这一块"
         case .whole: return "读整句"
-        case .swap(let o): return "换成 \(o) 说整句"
+        case .swap: return "说整句"
         }
     }
 
@@ -263,13 +309,19 @@ struct UnitFlowView: View {
         }
     }
 
-    private func playTarget() { Speaker.shared.speak(readTargetText, slow: { if case .part = currentRead { return true }; return false }()) }
+    private func playTarget() {
+        if case .part = currentRead {
+            Speaker.shared.speak(readTargetText, slow: true)
+        } else {
+            Speaker.shared.speak(readTargetText)
+        }
+    }
 
     private func toggleRead() {
         if speech.isRecording { speech.stop(); return }
         feedback = nil
-        Speaker.shared.stop()
         let step = currentRead
+        let target = readTargetText
         speech.onTranscript = { text in
             if readPassed(step, text) {
                 speech.stop(notify: false)
@@ -278,28 +330,28 @@ struct UnitFlowView: View {
         }
         speech.onStop = { text in
             switch step {
-            case .part(let range, let target, _):
+            case .part(let range, let part, _):
                 var fb = Array(repeating: true, count: tokens.count)
-                for (k, item) in PhraseMatcher.wordFeedback(target, transcript: text).enumerated() where range.lowerBound + k < fb.count {
+                for (k, item) in PhraseMatcher.wordFeedback(part, transcript: text).enumerated() where range.lowerBound + k < fb.count {
                     fb[range.lowerBound + k] = item.ok
                 }
                 fullFeedback = fb
-                feedback = "红色的词没读清，先听一遍再读"
+                feedback = "红色的词没读清，点那一块看怎么读"
             case .whole:
                 fullFeedback = PhraseMatcher.wordFeedback(unit.example, transcript: text).map(\.ok)
-                feedback = "红色的词没读清，先听一遍再读"
+                feedback = "红色的词没读清，点那一块看怎么读"
             case .swap(let o):
                 let r = FrameMatcher.check(unit: unit, answer: unit.sentence(with: o), transcript: text)
-                feedback = r.frameOK ? "槽位要换成 \(o)" : "骨架没说完整：\(unit.skeleton)"
+                feedback = r.frameOK ? "槽位要换成 \(o)" : "骨架没说完整，点喇叭听一遍"
             }
         }
-        if !speech.start(hints: []) { feedback = "语音识别暂不可用" }
+        if !speech.start(hints: [target]) { feedback = "语音识别暂不可用" }
     }
 
     private func readPassed(_ step: ReadStep, _ text: String) -> Bool {
         switch step {
-        case .part(_, let target, _): return PhraseMatcher.readingScore(target, transcript: text) >= Plan.readingPassScore
-        case .whole: return PhraseMatcher.readingScore(unit.example, transcript: text) >= Plan.readingPassScore
+        case .part(_, let target, _): return PhraseMatcher.readingScore(target, transcript: text) >= 0.65
+        case .whole: return PhraseMatcher.readingScore(unit.example, transcript: text) >= 0.65
         case .swap(let o): return FrameMatcher.check(unit: unit, answer: unit.sentence(with: o), transcript: text).passed
         }
     }
@@ -312,7 +364,8 @@ struct UnitFlowView: View {
             stage = 2
         } else {
             readStep += 1
-            playTarget()
+            // 换词说是凭记忆，不先播放答案
+            if swapping == nil { playTarget() }
         }
     }
 
@@ -332,10 +385,10 @@ struct UnitFlowView: View {
             .padding(.top, 18)
 
             if promptDone || mustRead {
-                TokenLine(key: "\(unit.id):a\(promptIndex)", range: 0..<prompt.answer.split(separator: " ").count, size: 22)
+                TokenLine(key: "\(unit.id):a\(promptIndex)", range: 0..<prompt.answer.split(separator: " ").count, size: 22, fallback: prompt.answer)
                     .padding(.top, 4)
             } else {
-                HStack(spacing: 6) {
+                FlowLayout(spacing: 6) {
                     if !unit.before.isEmpty { Text(unit.before).foregroundStyle(Color(hex: 0x9A9E96)) }
                     Text(unit.slotHint)
                         .foregroundStyle(Theme.accentDark)
@@ -391,12 +444,11 @@ struct UnitFlowView: View {
         if speech.isRecording { speech.stop(); return }
         feedback = nil
         spoken = nil
-        Speaker.shared.stop()
         let p = prompt
         speech.onTranscript = { text in
             let ok: Bool
             if mustRead {
-                ok = PhraseMatcher.readingScore(p.answer, transcript: text) >= Plan.readingPassScore
+                ok = PhraseMatcher.readingScore(p.answer, transcript: text) >= 0.65
             } else {
                 let r = FrameMatcher.check(unit: unit, answer: p.answer, transcript: text)
                 ok = r.passed
@@ -424,7 +476,7 @@ struct UnitFlowView: View {
                 feedback = !r.frameOK ? "骨架没说完整：\(unit.skeleton)" : "槽位不对，再想想“\(p.zh)”"
             }
         }
-        if !speech.start() { feedback = "语音识别暂不可用" }
+        if !speech.start(hints: [p.answer]) { feedback = "语音识别暂不可用" }
     }
 
     private func nextPrompt() {

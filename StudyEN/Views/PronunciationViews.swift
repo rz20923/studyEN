@@ -187,6 +187,9 @@ struct WordGuideSheet: View {
                     HStack(alignment: .firstTextBaseline) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(key).font(.title.bold())
+                            if let meaning = library.gloss(key) {
+                                Text(meaning).font(.headline).foregroundStyle(Theme.ink)
+                            }
                             if let info {
                                 Text("/\(info.ipa)/").font(.title3).foregroundStyle(.secondary)
                                 if let zh = info.zh {
@@ -196,7 +199,6 @@ struct WordGuideSheet: View {
                         }
                         Spacer()
                         SpeakButton(text: key)
-                        SpeakButton(text: key, slow: true)
                     }
                 }
                 let guides = (info?.g ?? []).compactMap { library.pron.guide($0) }
@@ -204,8 +206,12 @@ struct WordGuideSheet: View {
                     Text("这个词没有特别难的音，听朗读跟着模仿就行。").foregroundStyle(.secondary)
                 } else {
                     ForEach(guides) { guide in
-                        Section("\(guide.name) /\(guide.ipa)/") {
+                        Section {
                             GuideCardView(guide: guide, showTitle: false)
+                        } header: {
+                            // 在这个词的音标里把这个音标出来，看得出说明和这个词的关系
+                            highlighted(info?.ipa ?? "", guide.ipa.replacingOccurrences(of: "ː", with: ""))
+                                + Text("  这个词里的 \(guide.name)")
                         }
                     }
                 }
@@ -219,6 +225,13 @@ struct WordGuideSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+    }
+
+    private func highlighted(_ ipa: String, _ sound: String) -> Text {
+        guard !sound.isEmpty, let r = ipa.range(of: sound) else { return Text("/\(ipa)/") }
+        return Text("/\(String(ipa[..<r.lowerBound]))")
+            + Text(String(ipa[r])).foregroundColor(Theme.accent).bold()
+            + Text("\(String(ipa[r.upperBound...]))/")
     }
 }
 
@@ -242,7 +255,7 @@ struct GuideCardView: View {
                 .font(.subheadline)
                 .foregroundStyle(.orange)
             if !guide.words.isEmpty {
-                Text("练习词（点击朗读）").font(.caption).foregroundStyle(.secondary)
+                Text("同样的音还出现在（点击朗读）").font(.caption).foregroundStyle(.secondary)
                 FlowLayout(spacing: 6) {
                     ForEach(guide.words, id: \.self) { word in
                         Button(word) { Speaker.shared.speak(word, slow: true) }

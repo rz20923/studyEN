@@ -75,12 +75,15 @@ final class ChunkLibrary {
     let pron: PronunciationData
     /// 课题（MVP 的主线内容）
     let topics: [Topic]
+    /// 单词的中文意思（课题里出现的词）
+    let glossary: [String: String]
     private let unitByID: [String: (topic: Topic, unit: TopicUnit)]
     /// 学习顺序：润滑剂打头，并均匀穿插在短语动词之间
     let learningOrder: [Chunk]
     private let byID: [String: Chunk]
 
-    init(chunks: [Chunk], drills: [WordOrderDrill], pron: PronunciationData, topics: [Topic]) {
+    init(chunks: [Chunk], drills: [WordOrderDrill], pron: PronunciationData, topics: [Topic], glossary: [String: String] = [:]) {
+        self.glossary = glossary
         self.chunks = chunks
         self.drills = drills
         self.pron = pron
@@ -96,7 +99,8 @@ final class ChunkLibrary {
     }
 
     static func load() -> ChunkLibrary {
-        ChunkLibrary(chunks: decode("chunks"), drills: decode("word_order"), pron: decodeObject("pronunciation") ?? .empty, topics: decode("topics"))
+        ChunkLibrary(chunks: decode("chunks"), drills: decode("word_order"), pron: decodeObject("pronunciation") ?? .empty, topics: decode("topics"),
+                     glossary: decodeObject("glossary") ?? [:])
     }
 
     private static func decodeObject<T: Decodable>(_ name: String) -> T? {
@@ -117,7 +121,11 @@ final class ChunkLibrary {
 
     func chunk(id: String) -> Chunk? { byID[id] }
 
-    func unit(id: String) -> (topic: Topic, unit: TopicUnit)? { unitByID[id] }
+    func unit(id: String) -> (topic: Topic, unit: TopicUnit)? {
+        unitByID[id].map { ($0.topic, $0.unit.personalized()) }
+    }
+
+    func gloss(_ token: String) -> String? { glossary[PronunciationData.key(token)] }
 
     func scenes(of kind: ChunkKind) -> [String] {
         var seen = Set<String>()

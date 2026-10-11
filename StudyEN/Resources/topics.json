@@ -6,7 +6,7 @@
     "units": [
       {
         "id": "T01U1", "frame": "Hi, I'm [slot]. Nice to meet you.", "intent": "介绍自己", "slotHint": "你的名字",
-        "options": ["Leo", "Amy", "Jack", "Lily"],
+        "options": ["Leo", "Amy", "Jack", "Lily"], "optionsZh": ["Leo", "Amy", "Jack", "Lily"],
         "example": "Hi, I'm Leo. Nice to meet you.", "exampleZh": "你好，我是 Leo，很高兴认识你。",
         "prompts": [
           { "zh": "介绍自己叫 Amy", "answer": "Hi, I'm Amy. Nice to meet you." },
@@ -15,16 +15,16 @@
       },
       {
         "id": "T01U2", "frame": "I'm from [slot].", "intent": "说你来自哪里", "slotHint": "你的家乡",
-        "options": ["Shanghai", "Beijing", "a small town near Hangzhou", "China"],
+        "options": ["Shanghai", "Beijing", "Hangzhou", "China"], "optionsZh": ["上海", "北京", "杭州", "中国"],
         "example": "I'm from Shanghai.", "exampleZh": "我来自上海。",
         "prompts": [
           { "zh": "说你来自北京", "answer": "I'm from Beijing." },
-          { "zh": "说你来自杭州附近的一个小镇", "answer": "I'm from a small town near Hangzhou." }
+          { "zh": "说你来自杭州", "answer": "I'm from Hangzhou." }
         ]
       },
       {
         "id": "T01U3", "frame": "I work as [slot].", "intent": "说你的工作", "slotHint": "你的职业",
-        "options": ["a designer", "a teacher", "an engineer", "a nurse"],
+        "options": ["a designer", "a teacher", "an engineer", "a nurse"], "optionsZh": ["设计师", "老师", "工程师", "护士"],
         "example": "I work as a designer.", "exampleZh": "我是做设计的。",
         "prompts": [
           { "zh": "说你是老师", "answer": "I work as a teacher." },
@@ -33,7 +33,7 @@
       },
       {
         "id": "T01U4", "frame": "In my free time, I like to [slot].", "intent": "说你的爱好", "slotHint": "你喜欢做的事",
-        "options": ["go hiking", "watch movies", "play basketball", "read"],
+        "options": ["go hiking", "watch movies", "play basketball", "read"], "optionsZh": ["去徒步", "看电影", "打篮球", "看书"],
         "example": "In my free time, I like to go hiking.", "exampleZh": "空闲的时候，我喜欢去徒步。",
         "prompts": [
           { "zh": "说你空闲时喜欢看电影", "answer": "In my free time, I like to watch movies." },
@@ -42,7 +42,7 @@
       },
       {
         "id": "T01U5", "frame": "What brings you to [slot]?", "intent": "反问对方", "slotHint": "一个地方",
-        "options": ["Shanghai", "this city", "the party", "China"],
+        "options": ["Shanghai", "this city", "the party", "China"], "optionsZh": ["上海", "这座城市", "这个派对", "中国"],
         "example": "What brings you to Shanghai?", "exampleZh": "你怎么会来上海？",
         "prompts": [
           { "zh": "问对方怎么会来这座城市", "answer": "What brings you to this city?" },
@@ -54,7 +54,7 @@
       "role": "你在朋友的派对上，旁边的人主动和你打招呼",
       "npcName": "Sam",
       "turns": [
-        { "npc": "Hi there! I don't think we've met.", "unit": 0, "zh": "介绍你自己", "answer": "Hi, I'm Leo. Nice to meet you." },
+        { "npc": "Hi there! I don't think we've met.", "unit": 0, "zh": "用你的英文名介绍自己", "answer": "Hi, I'm Leo. Nice to meet you." },
         { "npc": "Nice to meet you too! I'm Sam. Where are you from?", "unit": 1, "zh": "说你来自哪里", "answer": "I'm from Shanghai." },
         { "npc": "Oh, cool. So what do you do?", "unit": 2, "zh": "说你的工作", "answer": "I work as a designer." },
         { "npc": "Nice! And what do you do on weekends?", "unit": 3, "zh": "说你空闲时喜欢做什么", "answer": "In my free time, I like to go hiking." },
@@ -69,16 +69,16 @@
     "units": [
       {
         "id": "T02U1", "frame": "I'd like to have [slot], please.", "intent": "礼貌点单", "slotHint": "你想要的东西",
-        "options": ["an iced latte", "a hot Americano", "a flat white", "two croissants"],
+        "options": ["an iced latte", "a hot Americano", "a flat white", "two croissants"], "optionsZh": ["一杯冰拿铁", "一杯热美式", "一杯馥芮白", "两个牛角包"],
         "example": "I'd like to have an iced latte, please.", "exampleZh": "我想要一杯冰拿铁，谢谢。",
         "prompts": [
-          { "zh": "点一杯大杯热美式", "answer": "I'd like to have a large hot Americano, please." },
+          { "zh": "点一杯热美式", "answer": "I'd like to have a hot Americano, please." },
           { "zh": "点两个牛角包", "answer": "I'd like to have two croissants, please." }
         ]
       },
       {
         "id": "T02U2", "frame": "Can I get that [slot]?", "intent": "提出具体要求", "slotHint": "做法或规格",
-        "options": ["with oat milk", "to go", "with less ice", "in a large size"],
+        "options": ["with oat milk", "to go", "with less ice", "in a large size"], "optionsZh": ["换燕麦奶", "打包带走", "少冰", "大杯"],
         "example": "Can I get that with oat milk?", "exampleZh": "这杯能换成燕麦奶吗？",
         "prompts": [
           { "zh": "问能不能换成燕麦奶", "answer": "Can I get that with oat milk?" },
@@ -87,7 +87,7 @@
       },
       {
         "id": "T02U3", "frame": "Actually, could I change it to [slot]?", "intent": "改单", "slotHint": "新的选择",
-        "options": ["a hot one", "a small size", "a cappuccino", "decaf"],
+        "options": ["a hot one", "a small size", "a cappuccino", "decaf"], "optionsZh": ["热的", "小杯", "卡布奇诺", "低因"],
         "example": "Actually, could I change it to a hot one?", "exampleZh": "等等，能改成热的吗？",
         "prompts": [
           { "zh": "把冰的改成热的", "answer": "Actually, could I change it to a hot one?" },
@@ -96,7 +96,7 @@
       },
       {
         "id": "T02U4", "frame": "How much is [slot]?", "intent": "问价格", "slotHint": "要问价的东西",
-        "options": ["the latte", "the muffin", "everything", "a refill"],
+        "options": ["the latte", "the muffin", "everything", "a refill"], "optionsZh": ["拿铁", "松饼", "一共", "续杯"],
         "example": "How much is the latte?", "exampleZh": "拿铁多少钱？",
         "prompts": [
           { "zh": "问一共多少钱", "answer": "How much is everything?" },
@@ -105,7 +105,7 @@
       },
       {
         "id": "T02U5", "frame": "Can I pay [slot]?", "intent": "问付款方式", "slotHint": "付款方式",
-        "options": ["by card", "with my phone", "in cash", "with Apple Pay"],
+        "options": ["by card", "with my phone", "in cash", "with Apple Pay"], "optionsZh": ["刷卡", "用手机", "付现金", "用 Apple Pay"],
         "example": "Can I pay by card?", "exampleZh": "可以刷卡吗？",
         "prompts": [
           { "zh": "问能不能刷卡", "answer": "Can I pay by card?" },
@@ -132,7 +132,7 @@
     "units": [
       {
         "id": "T03U1", "frame": "Excuse me, how do I get to [slot]?", "intent": "问路", "slotHint": "你要去的地方",
-        "options": ["the subway station", "the nearest bank", "Central Park", "the museum"],
+        "options": ["the subway station", "the nearest bank", "the museum", "the airport"], "optionsZh": ["地铁站", "最近的银行", "博物馆", "机场"],
         "example": "Excuse me, how do I get to the subway station?", "exampleZh": "打扰一下，地铁站怎么走？",
         "prompts": [
           { "zh": "问最近的银行怎么走", "answer": "Excuse me, how do I get to the nearest bank?" },
@@ -141,7 +141,7 @@
       },
       {
         "id": "T03U2", "frame": "Is it far from [slot]?", "intent": "问远近", "slotHint": "一个地方",
-        "options": ["here", "the hotel", "the station", "the airport"],
+        "options": ["here", "the hotel", "the station", "the airport"], "optionsZh": ["这儿", "酒店", "车站", "机场"],
         "example": "Is it far from here?", "exampleZh": "离这儿远吗？",
         "prompts": [
           { "zh": "问离这儿远不远", "answer": "Is it far from here?" },
@@ -150,7 +150,7 @@
       },
       {
         "id": "T03U3", "frame": "Which [slot] should I take?", "intent": "问坐哪趟车", "slotHint": "车、线路或出口",
-        "options": ["bus", "line", "exit", "train"],
+        "options": ["bus", "line", "exit", "train"], "optionsZh": ["公交", "地铁线", "出口", "火车"],
         "example": "Which bus should I take?", "exampleZh": "我应该坐哪路公交？",
         "prompts": [
           { "zh": "问应该坐哪条地铁线", "answer": "Which line should I take?" },
@@ -159,7 +159,7 @@
       },
       {
         "id": "T03U4", "frame": "Do I need to [slot]?", "intent": "确认要不要做某事", "slotHint": "要做的事",
-        "options": ["change trains", "buy a ticket first", "get off here", "take a taxi"],
+        "options": ["change trains", "buy a ticket first", "get off here", "take a taxi"], "optionsZh": ["换乘", "先买票", "在这儿下车", "打车"],
         "example": "Do I need to change trains?", "exampleZh": "我需要换乘吗？",
         "prompts": [
           { "zh": "问需不需要换乘", "answer": "Do I need to change trains?" },
@@ -168,7 +168,7 @@
       },
       {
         "id": "T03U5", "frame": "Could you show me [slot]?", "intent": "请对方指给你看", "slotHint": "要看的东西",
-        "options": ["on the map", "the way", "where it is", "which one"],
+        "options": ["on the map", "the way", "where it is", "which one"], "optionsZh": ["在地图上", "怎么走", "在哪儿", "是哪一个"],
         "example": "Could you show me on the map?", "exampleZh": "你能在地图上指给我看吗？",
         "prompts": [
           { "zh": "请对方在地图上指给你看", "answer": "Could you show me on the map?" },
@@ -182,7 +182,7 @@
       "turns": [
         { "npc": "Hi, you look a little lost. Can I help?", "unit": 0, "zh": "问地铁站怎么走", "answer": "Excuse me, how do I get to the subway station?" },
         { "npc": "Sure. Just go straight for two blocks.", "unit": 1, "zh": "问离这儿远不远", "answer": "Is it far from here?" },
-        { "npc": "Not really, about five minutes on foot.", "unit": 2, "zh": "问去市中心应该坐哪条线", "answer": "Which line should I take?" },
+        { "npc": "Not really, about five minutes on foot.", "unit": 2, "zh": "问应该坐哪条地铁线", "answer": "Which line should I take?" },
         { "npc": "Take Line 2. It goes right downtown.", "unit": 3, "zh": "问需不需要换乘", "answer": "Do I need to change trains?" },
         { "npc": "Nope, it's a direct line.", "unit": 4, "zh": "请对方在地图上指给你看", "answer": "Could you show me on the map?" }
       ]

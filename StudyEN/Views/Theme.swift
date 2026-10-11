@@ -51,6 +51,8 @@ struct DayHeader: View {
     /// 5 步是否完成
     let done: [Bool]
     let current: Int?
+    /// 今天已经练了多久
+    var elapsed: String?
 
     private let names = ["热身", "新课题", "对话", "开口", "测试"]
 
@@ -60,6 +62,11 @@ struct DayHeader: View {
                 Text("DAY \(day)").font(Theme.en(22, .heavy))
                 Text(label).font(.subheadline).foregroundStyle(Theme.muted).lineLimit(1)
                 Spacer()
+                if let elapsed {
+                    Label(elapsed, systemImage: "timer")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(Theme.muted)
+                }
                 Label("\(streak)", systemImage: "flame.fill")
                     .font(.subheadline.bold())
                     .foregroundStyle(Theme.ink)
@@ -208,11 +215,20 @@ struct TokenLine: View {
     var subColor: Color = Theme.faint
     /// 和 range 等长：false 的词标红
     var feedback: [Bool]?
+    /// 点词是否弹出单词说明（放在“块”里时由外层统一处理点击）
+    var tappable = true
+    /// 实际要显示的句子；和标注对不上时（比如换成了用户的名字）直接显示这句
+    var fallback: String?
 
     @State private var selected: WordRef?
 
+    private func matches(_ s: PronSentence) -> Bool {
+        guard let fallback else { return true }
+        return PhraseMatcher.words(s.tokens.map(\.t).joined(separator: " ")) == PhraseMatcher.words(fallback)
+    }
+
     var body: some View {
-        if let s = library.pron.sentences[key] {
+        if let s = library.pron.sentences[key], matches(s) {
             let links = Set(s.links.map(\.i))
             FlowLayout(spacing: 4) {
                 ForEach(Array(range.clamped(to: 0..<s.tokens.count)), id: \.self) { i in
@@ -233,6 +249,7 @@ struct TokenLine: View {
                             }
                         }
                         .buttonStyle(.plain)
+                        .allowsHitTesting(tappable)
                         if links.contains(i) && i + 1 < range.upperBound {
                             Text("‿").font(.headline).foregroundStyle(Theme.accent)
                         }
@@ -240,6 +257,8 @@ struct TokenLine: View {
                 }
             }
             .sheet(item: $selected) { ref in WordGuideSheet(token: ref.token) }
+        } else if let fallback {
+            Text(fallback).font(Theme.en(size, .bold)).foregroundStyle(color)
         }
     }
 }

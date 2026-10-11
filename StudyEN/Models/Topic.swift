@@ -32,6 +32,8 @@ struct TopicUnit: Codable, Identifiable, Hashable {
     let intent: String
     let slotHint: String
     let options: [String]
+    /// 每个可替换词的中文，不认识的词不会卡住
+    let optionsZh: [String]?
     let example: String
     let exampleZh: String
     let prompts: [Prompt]
@@ -47,6 +49,23 @@ struct TopicUnit: Codable, Identifiable, Hashable {
     /// 骨架显示：槽位用下划线
     var skeleton: String { frame.replacingOccurrences(of: "[slot]", with: "___") }
 
+    func optionZh(_ option: String) -> String {
+        guard let zh = optionsZh, let i = options.firstIndex(of: option), i < zh.count else { return "" }
+        return zh[i]
+    }
+
+    /// 自我介绍单元换成用户自己的英文名
+    func personalized() -> TopicUnit {
+        guard id == "T01U1", let name = UserName.current else { return self }
+        let others = options.filter { $0 != name }
+        return TopicUnit(
+            id: id, frame: frame, intent: intent, slotHint: slotHint,
+            options: [name] + others.prefix(3), optionsZh: [name] + others.prefix(3),
+            example: example, exampleZh: exampleZh,
+            prompts: [Prompt(zh: "用你的英文名 \(name) 介绍自己", answer: sentence(with: name))] + prompts.prefix(1)
+        )
+    }
+
     /// 把槽位换成某个词，得到整句
     func sentence(with slot: String) -> String {
         frame.replacingOccurrences(of: "[slot]", with: slot)
@@ -59,6 +78,21 @@ struct TopicUnit: Codable, Identifiable, Hashable {
         let a = after.split(separator: " ").filter { !$0.allSatisfy { ",.?!".contains($0) } }.count
         let slotEnd = max(b, total - a)
         return (0..<b, b..<slotEnd, slotEnd..<total)
+    }
+}
+
+/// 用户的英文名（第一次打开时起）
+enum UserName {
+    static let key = "englishName"
+    static var current: String? {
+        let name = UserDefaults.standard.string(forKey: key)?.trimmingCharacters(in: .whitespaces) ?? ""
+        return name.isEmpty ? nil : name
+    }
+
+    /// 例句里的 Leo 换成用户的名字
+    static func apply(_ text: String) -> String {
+        guard let name = current else { return text }
+        return text.replacingOccurrences(of: "Leo", with: name)
     }
 }
 
@@ -109,13 +143,19 @@ enum FrameMatcher {
     }
 
     static func check(unit: TopicUnit, answer: String?, transcript: String) -> Result {
-        guard let spoken = slotWords(unit: unit, in: transcript), !spoken.isEmpty else {
-            return Result(frameOK: false, slotOK: false)
+        let heard = PhraseMatcher.words(transcript)
+        // 自我介绍里的名字识别器常听不准，名字随便说都算填对
+        let expected = unit.id == "T01U1" ? nil : answer.flatMap { slotWords(unit: unit, in: $0) }
+        var best = Result(frameOK: false, slotOK: false)
+        // 说错了接着重说：从后面任意位置重新开始匹配也算
+        for k in 0..<min(max(heard.count, 1), 40) {
+            let text = heard[min(k, heard.count)...].joined(separator: " ")
+            guard let spoken = slotWords(unit: unit, in: text), !spoken.isEmpty else { continue }
+            guard let expected, !expected.isEmpty else { return Result(frameOK: true, slotOK: true) }
+            let score = PhraseMatcher.readingScore(expected.joined(separator: " "), transcript: spoken.joined(separator: " "))
+            if score >= 0.5 { return Result(frameOK: true, slotOK: true) }
+            best = Result(frameOK: true, slotOK: false)
         }
-        guard let answer, let expected = slotWords(unit: unit, in: answer), !expected.isEmpty else {
-            return Result(frameOK: true, slotOK: true)
-        }
-        let score = PhraseMatcher.readingScore(expected.joined(separator: " "), transcript: spoken.joined(separator: " "))
-        return Result(frameOK: true, slotOK: score >= 0.5)
+        return best
     }
 }

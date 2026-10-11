@@ -3,11 +3,13 @@ import AVFoundation
 /// 系统 TTS 朗读，用于听原声、跟读
 final class Speaker {
     static let shared = Speaker()
-    private let synth = AVSpeechSynthesizer()
+    /// 每次朗读用新的合成器：被录音打断过的合成器偶尔会卡住不出声
+    private var synth = AVSpeechSynthesizer()
 
     func speak(_ text: String, slow: Bool = false) {
         AudioSessionConfig.activate()
         synth.stopSpeaking(at: .immediate)
+        synth = AVSpeechSynthesizer()
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
         utterance.rate = slow ? 0.38 : AVSpeechUtteranceDefaultSpeechRate

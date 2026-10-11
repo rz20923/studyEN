@@ -11,6 +11,8 @@ struct TrainView: View {
 
     @State private var cover: Cover?
     @State private var extra: ExtraBox?
+    @State private var elapsed = StudyTimer.seconds
+    @Environment(\.scenePhase) private var scenePhase
 
     enum Cover: Identifiable {
         case boss(Topic), endurance(Int), done
@@ -109,7 +111,7 @@ struct TrainView: View {
         let s = state
         let step = s.step
         VStack(spacing: 0) {
-            DayHeader(day: s.trainingDay, label: label(step, s), streak: s.streak, done: s.done, current: index(step))
+            DayHeader(day: s.trainingDay, label: label(step, s), streak: s.streak, done: s.done, current: index(step), elapsed: StudyTimer.text(elapsed))
             switch step {
             case .warmup:
                 VStack(spacing: 0) {
@@ -155,6 +157,16 @@ struct TrainView: View {
                 .presentationDetents([.large])
         }
         .task(id: s.checkedIn) { Reminder.refresh(checkedInToday: s.checkedIn) }
+        // 今天的学习计时：只在前台、还没打卡时走
+        .task(id: scenePhase == .active && !s.checkedIn) {
+            guard scenePhase == .active, !s.checkedIn else { elapsed = StudyTimer.seconds; return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                if Task.isCancelled { break }
+                StudyTimer.add(1)
+                elapsed = StudyTimer.seconds
+            }
+        }
     }
 
     struct ExtraBox: Identifiable {
@@ -251,6 +263,7 @@ struct DoneView: View {
                 stat(Endurance.secondsText(best), "最长一次连续开口")
                 stat("\(learnedToday.count)", "新学会的句子框架")
                 stat("\(passed.count)", "通关的对话")
+                stat(StudyTimer.text(StudyTimer.seconds), "今天学习用时")
             }
             .padding(.top, 34)
 
