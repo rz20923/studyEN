@@ -21,12 +21,31 @@ struct PhraseLevel: Codable, Identifiable, Hashable {
 }
 
 enum PhraseDeck {
-    static let levels: [PhraseLevel] = {
+    static let builtin: [PhraseLevel] = {
         guard let url = Bundle.main.url(forResource: "phrasals", withExtension: "json"),
               let data = try? Data(contentsOf: url),
               let levels = try? JSONDecoder().decode([PhraseLevel].self, from: data) else { return [] }
         return levels
     }()
+
+    /// AI 生成的关卡，存在本机
+    private static let customKey = "aiPhraseLevels"
+
+    static var custom: [PhraseLevel] {
+        guard let data = UserDefaults.standard.data(forKey: customKey),
+              let levels = try? JSONDecoder().decode([PhraseLevel].self, from: data) else { return [] }
+        return levels
+    }
+
+    static var all: [PhraseLevel] { builtin + custom }
+
+    static func addCustom(_ level: PhraseLevel) { saveCustom(custom + [level]) }
+
+    static func removeCustom(id: String) { saveCustom(custom.filter { $0.id != id }) }
+
+    private static func saveCustom(_ levels: [PhraseLevel]) {
+        if let data = try? JSONEncoder().encode(levels) { UserDefaults.standard.set(data, forKey: customKey) }
+    }
 }
 
 enum PhraseMode: String, CaseIterable, Identifiable {
@@ -102,6 +121,8 @@ struct PhraseHubView: View {
     @State private var mode: PhraseMode = .listen
     @State private var records = PhraseRecords.all()
     @State private var playing: GameBox?
+    @State private var levels = PhraseDeck.all
+    @State private var showAI = false
 
     struct GameBox: Identifiable {
         let id = UUID()
@@ -110,13 +131,13 @@ struct PhraseHubView: View {
     }
 
     private func record(_ i: Int) -> PhraseRecord {
-        records[PhraseRecords.id(PhraseDeck.levels[i].id, mode)] ?? PhraseRecord()
+        records[PhraseRecords.id(levels[i].id, mode)] ?? PhraseRecord()
     }
 
-    private func unlocked(_ i: Int) -> Bool { i == 0 || record(i - 1).stars > 0 }
+    /// AI 生成的关卡不用解锁
+    private func unlocked(_ i: Int) -> Bool { i == 0 || i >= PhraseDeck.builtin.count || record(i - 1).stars > 0 }
 
     var body: some View {
-        let levels = PhraseDeck.levels
         let stars = records.values.map(\.stars).reduce(0, +)
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -129,6 +150,15 @@ struct PhraseHubView: View {
                 }
                 Text("10 张卡一关，听到就说，越快越连击分越高")
                     .font(.subheadline).foregroundStyle(Theme.muted)
+                Button { showAI = true } label: {
+                    Label("AI 出一关：输入场景，生成 10 张卡", systemImage: "sparkles")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(Theme.accentDark)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(Theme.accentTint, in: RoundedRectangle(cornerRadius: 14))
+                }
+                .buttonStyle(.plain)
 
                 HStack(spacing: 10) {
                     ForEach(PhraseMode.allCases) { m in
@@ -156,7 +186,8 @@ struct PhraseHubView: View {
                         } label: {
                             VStack(alignment: .leading, spacing: 6) {
                                 HStack {
-                                    Text("第 \(i + 1) 关").font(.caption.bold()).foregroundStyle(Theme.muted)
+                                    Text(i >= PhraseDeck.builtin.count ? "AI 关卡" : "第 \(i + 1) 关").font(.caption.bold())
+                                        .foregroundStyle(i >= PhraseDeck.builtin.count ? Theme.accentDark : Theme.muted)
                                     Spacer()
                                     if !open { Image(systemName: "lock.fill").font(.caption).foregroundStyle(Theme.faint) }
                                 }
@@ -176,6 +207,14 @@ struct PhraseHubView: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(!open)
+                        .contextMenu {
+                            if i >= PhraseDeck.builtin.count {
+                                Button("删除这一关", role: .destructive) {
+                                    PhraseDeck.removeCustom(id: levels[i].id)
+                                    levels = PhraseDeck.all
+                                }
+                            }
+                        }
                     }
                 }
                 Text("过一关（至少 1 星）解锁下一关。两种玩法分开算星。")
@@ -185,7 +224,16 @@ struct PhraseHubView: View {
         }
         .background(Theme.ground)
         .fullScreenCover(item: $playing, onDismiss: { records = PhraseRecords.all() }) { box in
-            PhraseGameView(levelIndex: box.index, mode: box.mode)
+            PhraseGameView(levelIndex: box.index, mode: box.mode, levels: levels)
+        }
+        // 生成完等弹窗收起再进游戏，否则全屏页弹不出来
+        .sheet(isPresented: $showAI, onDismiss: {
+            if levels.count != PhraseDeck.all.count {
+                levels = PhraseDeck.all
+                playing = GameBox(index: levels.count - 1, mode: mode)
+            }
+        }) {
+            AIPhraseLevelSheet { _ in }
         }
     }
 }
@@ -196,6 +244,7 @@ struct PhraseGameView: View {
     @Environment(\.dismiss) private var dismiss
     @State var levelIndex: Int
     let mode: PhraseMode
+    let levels: [PhraseLevel]
 
     enum CardState { case idle, right, wrong, retry, fixed }
 
@@ -229,7 +278,7 @@ struct PhraseGameView: View {
     /// 每次暂停 / 重开都换一个号，旧的回调自动作废
     @State private var flow = 0
 
-    private var level: PhraseLevel { PhraseDeck.levels[levelIndex] }
+    private var level: PhraseLevel { levels[levelIndex] }
     private var cards: [PhraseCard] { level.cards }
 
     var body: some View {
@@ -435,7 +484,7 @@ struct PhraseGameView: View {
                     stat(String(format: "%d:%02d", o.seconds / 60, o.seconds % 60), "用时")
                 }
                 VStack(spacing: 10) {
-                    if levelIndex + 1 < PhraseDeck.levels.count {
+                    if levelIndex + 1 < levels.count {
                         InkButton("下一关", icon: "arrow.right") {
                             levelIndex += 1
                             reset()
