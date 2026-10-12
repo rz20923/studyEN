@@ -17,7 +17,7 @@ final class SpeechChecker {
     /// 开口后静默多久自动结束这一次
     @ObservationIgnored var stopAfterSilence: TimeInterval = 2.5
 
-    @ObservationIgnored private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+    @ObservationIgnored private var recognizers: [String: SFSpeechRecognizer] = [:]
     @ObservationIgnored private let engine = AVAudioEngine()
     @ObservationIgnored private var request: SFSpeechAudioBufferRecognitionRequest?
     @ObservationIgnored private var task: SFSpeechRecognitionTask?
@@ -34,11 +34,12 @@ final class SpeechChecker {
 
     /// hints：期望听到的句子，交给识别引擎做偏向，能明显提高识别准确率
     @discardableResult
-    func start(hints: [String] = [], timeout: TimeInterval = 12) -> Bool {
+    func start(hints: [String] = [], timeout: TimeInterval = 12, locale: String = "en-US") -> Bool {
         stop(notify: false)
         transcript = ""
         Speaker.shared.stop()
-        guard let recognizer, recognizer.isAvailable, AudioSessionConfig.activate() else { return false }
+        if recognizers[locale] == nil { recognizers[locale] = SFSpeechRecognizer(locale: Locale(identifier: locale)) }
+        guard let recognizer = recognizers[locale], recognizer.isAvailable, AudioSessionConfig.activate() else { return false }
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true

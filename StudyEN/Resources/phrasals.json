@@ -1,0 +1,98 @@
+[
+  {"id": "P01", "title": "日常动作", "cards": [
+    {"en": "wake up", "zh": "醒来", "ok": ["醒"], "ex": "I wake up at seven.", "exZh": "我七点醒。"},
+    {"en": "get up", "zh": "起床", "ok": ["起床", "起来"], "ex": "Time to get up!", "exZh": "该起床了！"},
+    {"en": "sit down", "zh": "坐下", "ok": ["坐"], "ex": "Please sit down.", "exZh": "请坐。"},
+    {"en": "stand up", "zh": "站起来", "ok": ["站", "起立"], "ex": "Stand up, please.", "exZh": "请站起来。"},
+    {"en": "come in", "zh": "进来", "ok": ["进来", "进"], "ex": "Come in, the door's open.", "exZh": "进来吧，门开着。"},
+    {"en": "go out", "zh": "出去", "ok": ["出去", "出门"], "ex": "Let's go out tonight.", "exZh": "今晚出去吧。"},
+    {"en": "come back", "zh": "回来", "ok": ["回来"], "ex": "I'll come back later.", "exZh": "我待会儿回来。"},
+    {"en": "go back", "zh": "回去", "ok": ["回去", "返回"], "ex": "I need to go back home.", "exZh": "我得回家了。"},
+    {"en": "hurry up", "zh": "快点", "ok": ["快", "赶紧"], "ex": "Hurry up, we're late!", "exZh": "快点，我们迟到了！"},
+    {"en": "calm down", "zh": "冷静", "ok": ["冷静", "别激动", "别急"], "ex": "Calm down, it's okay.", "exZh": "冷静，没事的。"}
+  ]},
+  {"id": "P02", "title": "开关穿脱", "cards": [
+    {"en": "turn on", "zh": "打开（电器）", "ok": ["打开", "开"], "ex": "Turn on the light.", "exZh": "开灯。"},
+    {"en": "turn off", "zh": "关掉", "ok": ["关"], "ex": "Turn off your phone.", "exZh": "把手机关掉。"},
+    {"en": "turn up", "zh": "调大声", "ok": ["调大", "开大", "大声", "大一点", "大点"], "ex": "Can you turn it up?", "exZh": "能调大点吗？"},
+    {"en": "turn down", "zh": "调小声", "ok": ["调小", "关小", "小声", "小一点", "小点"], "ex": "Turn the music down.", "exZh": "把音乐调小。"},
+    {"en": "put on", "zh": "穿上；戴上", "ok": ["穿", "戴"], "ex": "Put on your coat.", "exZh": "穿上外套。"},
+    {"en": "take off", "zh": "脱下；摘下", "ok": ["脱", "摘"], "ex": "Take off your shoes.", "exZh": "把鞋脱了。"},
+    {"en": "pick up", "zh": "捡起来；拿起", "ok": ["捡", "拿起"], "ex": "Pick up your bag.", "exZh": "把包拿起来。"},
+    {"en": "put down", "zh": "放下", "ok": ["放下", "放"], "ex": "Put it down, please.", "exZh": "请把它放下。"},
+    {"en": "throw away", "zh": "扔掉", "ok": ["扔", "丢"], "ex": "Don't throw it away.", "exZh": "别扔掉。"},
+    {"en": "clean up", "zh": "收拾干净", "ok": ["收拾", "打扫", "清理", "整理", "清洁"], "ex": "Let's clean up the room.", "exZh": "我们把房间收拾一下。"}
+  ]},
+  {"id": "P03", "title": "出门坐车", "cards": [
+    {"en": "get on", "zh": "上车", "ok": ["上车", "上"], "ex": "Get on the bus here.", "exZh": "在这里上车。"},
+    {"en": "get off", "zh": "下车", "ok": ["下车", "下"], "ex": "Get off at the next stop.", "exZh": "下一站下车。"},
+    {"en": "check in", "zh": "办理入住", "ok": ["入住", "登记", "值机", "报到"], "ex": "I'd like to check in.", "exZh": "我想办理入住。"},
+    {"en": "check out", "zh": "退房", "ok": ["退房", "结账"], "ex": "We check out at noon.", "exZh": "我们中午退房。"},
+    {"en": "set off", "zh": "出发", "ok": ["出发", "动身", "启程"], "ex": "We set off at eight.", "exZh": "我们八点出发。"},
+    {"en": "drop off", "zh": "把人送到", "ok": ["送", "下车", "放下"], "ex": "Can you drop me off here?", "exZh": "能在这儿让我下车吗？"},
+    {"en": "come over", "zh": "过来（来家里）", "ok": ["过来", "来"], "ex": "Come over this weekend!", "exZh": "这周末过来玩吧！"},
+    {"en": "go ahead", "zh": "你先请；去吧", "ok": ["你先", "先请", "请便", "去吧", "继续"], "ex": "Go ahead, you first.", "exZh": "你先请。"},
+    {"en": "turn around", "zh": "转身；掉头", "ok": ["转身", "掉头", "回头", "转过"], "ex": "Turn around, it's behind you.", "exZh": "转过身，在你后面。"},
+    {"en": "look out", "zh": "小心", "ok": ["小心", "当心", "注意"], "ex": "Look out! A car!", "exZh": "小心！有车！"}
+  ]},
+  {"id": "P04", "title": "交朋友", "cards": [
+    {"en": "hang out", "zh": "一起玩", "ok": ["玩", "闲逛", "待着", "一起"], "ex": "Let's hang out sometime.", "exZh": "找时间一起玩吧。"},
+    {"en": "catch up", "zh": "叙叙旧", "ok": ["叙旧", "近况", "聊聊", "赶上"], "ex": "Let's catch up over coffee.", "exZh": "喝杯咖啡叙叙旧吧。"},
+    {"en": "meet up", "zh": "碰个面", "ok": ["见面", "碰面", "见一面", "聚"], "ex": "Want to meet up tomorrow?", "exZh": "明天碰个面？"},
+    {"en": "show up", "zh": "出现；到场", "ok": ["出现", "露面", "来了", "到场"], "ex": "He didn't show up.", "exZh": "他没来。"},
+    {"en": "ask out", "zh": "约人出去", "ok": ["约"], "ex": "He asked her out.", "exZh": "他约她出去了。"},
+    {"en": "break up", "zh": "分手", "ok": ["分手"], "ex": "They broke up last year.", "exZh": "他们去年分手了。"},
+    {"en": "get along", "zh": "相处得来", "ok": ["相处", "合得来", "处得"], "ex": "We get along well.", "exZh": "我们相处得很好。"},
+    {"en": "cheer up", "zh": "开心点", "ok": ["开心", "振作", "高兴", "打起精神"], "ex": "Cheer up! It's Friday.", "exZh": "开心点！周五了。"},
+    {"en": "run into", "zh": "偶遇", "ok": ["碰到", "遇到", "偶遇", "撞见", "碰见"], "ex": "I ran into Amy today.", "exZh": "我今天碰到 Amy 了。"},
+    {"en": "look forward to", "zh": "期待", "ok": ["期待", "盼望"], "ex": "I look forward to it.", "exZh": "我很期待。"}
+  ]},
+  {"id": "P05", "title": "想和说", "cards": [
+    {"en": "find out", "zh": "查清楚；发现", "ok": ["发现", "查明", "弄清", "搞清", "知道", "查清"], "ex": "Let me find out.", "exZh": "我去问清楚。"},
+    {"en": "figure out", "zh": "想明白", "ok": ["想明白", "搞明白", "弄明白", "想出", "搞懂", "弄懂", "想通"], "ex": "I can't figure it out.", "exZh": "我想不明白。"},
+    {"en": "look up", "zh": "查一下（资料）", "ok": ["查"], "ex": "Look it up online.", "exZh": "上网查一下。"},
+    {"en": "write down", "zh": "写下来", "ok": ["写下", "记下"], "ex": "Write down my number.", "exZh": "记下我的号码。"},
+    {"en": "make up", "zh": "编（故事）", "ok": ["编", "瞎说", "捏造"], "ex": "He made it up.", "exZh": "是他编的。"},
+    {"en": "think about", "zh": "考虑", "ok": ["考虑", "想想", "思考"], "ex": "Let me think about it.", "exZh": "让我想想。"},
+    {"en": "work out", "zh": "健身", "ok": ["健身", "锻炼", "运动"], "ex": "I work out every morning.", "exZh": "我每天早上健身。"},
+    {"en": "point out", "zh": "指出", "ok": ["指出"], "ex": "Thanks for pointing that out.", "exZh": "谢谢你指出来。"},
+    {"en": "mix up", "zh": "搞混", "ok": ["搞混", "弄混", "混淆", "搞错", "弄错"], "ex": "I always mix them up.", "exZh": "我总把它们搞混。"},
+    {"en": "come up with", "zh": "想出（主意）", "ok": ["想出", "想到", "提出"], "ex": "She came up with a great idea.", "exZh": "她想出一个好主意。"}
+  ]},
+  {"id": "P06", "title": "买东西吃饭", "cards": [
+    {"en": "try on", "zh": "试穿", "ok": ["试穿", "试"], "ex": "Can I try it on?", "exZh": "我能试穿吗？"},
+    {"en": "pay for", "zh": "付钱", "ok": ["付", "买单", "支付", "结账", "请客"], "ex": "I'll pay for lunch.", "exZh": "午饭我来付。"},
+    {"en": "sell out", "zh": "卖光", "ok": ["卖光", "卖完", "售罄", "没货"], "ex": "They're sold out.", "exZh": "卖完了。"},
+    {"en": "run out of", "zh": "用完", "ok": ["用完", "用光", "没了", "没有了", "喝完", "吃完"], "ex": "We ran out of milk.", "exZh": "牛奶喝完了。"},
+    {"en": "eat out", "zh": "出去吃饭", "ok": ["出去吃", "下馆子", "外面吃", "在外面"], "ex": "Let's eat out tonight.", "exZh": "今晚出去吃吧。"},
+    {"en": "take away", "zh": "外带；拿走", "ok": ["外带", "带走", "打包", "拿走"], "ex": "Is it for here or to take away?", "exZh": "堂食还是外带？"},
+    {"en": "fill out", "zh": "填写（表格）", "ok": ["填"], "ex": "Please fill out this form.", "exZh": "请填这张表。"},
+    {"en": "look for", "zh": "找", "ok": ["找", "寻找"], "ex": "I'm looking for the station.", "exZh": "我在找车站。"},
+    {"en": "go with", "zh": "就选（这个）", "ok": ["选", "就要", "要这个", "搭配"], "ex": "I'll go with the latte.", "exZh": "我就要拿铁吧。"},
+    {"en": "pick out", "zh": "挑选", "ok": ["挑", "选"], "ex": "Help me pick out a gift.", "exZh": "帮我挑个礼物。"}
+  ]},
+  {"id": "P07", "title": "求助和电话", "cards": [
+    {"en": "give up", "zh": "放弃", "ok": ["放弃"], "ex": "Don't give up!", "exZh": "别放弃！"},
+    {"en": "hold on", "zh": "等一下", "ok": ["等", "稍等"], "ex": "Hold on a second.", "exZh": "稍等一下。"},
+    {"en": "hang up", "zh": "挂电话", "ok": ["挂"], "ex": "Don't hang up!", "exZh": "别挂电话！"},
+    {"en": "call back", "zh": "回电话", "ok": ["回电", "打回", "回个电话"], "ex": "I'll call you back.", "exZh": "我待会儿给你回电话。"},
+    {"en": "look after", "zh": "照顾", "ok": ["照顾", "照看", "看着"], "ex": "Can you look after my cat?", "exZh": "你能帮我照看猫吗？"},
+    {"en": "help out", "zh": "帮个忙", "ok": ["帮"], "ex": "Can you help me out?", "exZh": "能帮我个忙吗？"},
+    {"en": "break down", "zh": "坏了（抛锚）", "ok": ["坏", "抛锚", "故障"], "ex": "My car broke down.", "exZh": "我的车坏了。"},
+    {"en": "sort out", "zh": "搞定；解决", "ok": ["解决", "搞定", "处理", "整理"], "ex": "I'll sort it out.", "exZh": "我来搞定。"},
+    {"en": "get over", "zh": "走出来（克服）", "ok": ["走出来", "克服", "恢复", "好起来", "过去"], "ex": "You'll get over it.", "exZh": "你会走出来的。"},
+    {"en": "back up", "zh": "支持（某人）", "ok": ["支持", "挺", "撑"], "ex": "I'll back you up.", "exZh": "我挺你。"}
+  ]},
+  {"id": "P08", "title": "计划和时间", "cards": [
+    {"en": "put off", "zh": "推迟；拖", "ok": ["推迟", "拖", "延期", "往后推"], "ex": "Don't put it off.", "exZh": "别拖了。"},
+    {"en": "call off", "zh": "取消", "ok": ["取消"], "ex": "The game was called off.", "exZh": "比赛取消了。"},
+    {"en": "carry on", "zh": "继续", "ok": ["继续", "接着"], "ex": "Carry on, I'm listening.", "exZh": "接着说，我在听。"},
+    {"en": "set up", "zh": "安排；装好", "ok": ["安排", "设置", "装", "搭", "建立"], "ex": "Let's set up a meeting.", "exZh": "我们约个时间开会吧。"},
+    {"en": "sign up", "zh": "报名", "ok": ["报名", "注册"], "ex": "I signed up for a class.", "exZh": "我报了个班。"},
+    {"en": "slow down", "zh": "慢点", "ok": ["慢", "减速"], "ex": "Slow down, please.", "exZh": "请慢点。"},
+    {"en": "end up", "zh": "最后（落得）", "ok": ["最后", "最终", "结果"], "ex": "We ended up staying home.", "exZh": "我们最后待在家里了。"},
+    {"en": "show off", "zh": "炫耀", "ok": ["炫耀", "显摆", "秀"], "ex": "Stop showing off.", "exZh": "别显摆了。"},
+    {"en": "give back", "zh": "还给", "ok": ["还给", "归还", "还"], "ex": "Give it back to me.", "exZh": "还给我。"},
+    {"en": "go on", "zh": "发生（怎么了）", "ok": ["发生", "怎么了", "怎么回事"], "ex": "What's going on?", "exZh": "怎么回事？"}
+  ]}
+]
