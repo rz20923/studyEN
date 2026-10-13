@@ -22,7 +22,7 @@ struct RootView: View {
 
     var body: some View {
         TabView {
-            TrainView()
+            TrainGate()
                 .tabItem { Label("训练", systemImage: "square.stack.3d.up.fill") }
             PhraseHubView()
                 .tabItem { Label("词组", systemImage: "gamecontroller.fill") }

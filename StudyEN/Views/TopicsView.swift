@@ -141,6 +141,7 @@ struct MeView: View {
     @AppStorage("zhPron") private var zhPron = false
     @AppStorage(UserName.key) private var name = ""
     @State private var editName = false
+    @AppStorage("chunkPhase") private var chunkPhase = true
 
     var body: some View {
         let total = sets.map(\.speakingSeconds).reduce(0, +)
@@ -223,6 +224,8 @@ struct MeView: View {
                         Divider()
                         Button { editName = true } label: { row("英文名", name.isEmpty ? "未设置" : name) }
                             .buttonStyle(.plain)
+                        Divider()
+                        Toggle("第 1 阶段：词块打底", isOn: $chunkPhase).padding(.vertical, 12).tint(Theme.accent)
                         Divider()
                         Toggle("读音显示汉字音译", isOn: $zhPron).padding(.vertical, 12).tint(Theme.accent)
                         Divider()

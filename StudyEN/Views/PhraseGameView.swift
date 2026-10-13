@@ -100,7 +100,11 @@ enum PhraseJudge {
 
     /// 英文：词组的词按顺序出现，中间最多夹 2 个词（pick it up 也算）；gave up 这种变形也算
     static func en(_ card: PhraseCard, _ text: String) -> Bool {
-        let target = PhraseMatcher.words(card.en)
+        ordered(PhraseMatcher.words(card.en), in: text)
+    }
+
+    /// target 的词按顺序出现在 text 里，相邻两个词之间最多夹 2 个别的词
+    static func ordered(_ target: [String], in text: String) -> Bool {
         let heard = PhraseMatcher.words(text)
         guard let head = target.first else { return false }
         for s in heard.indices where PhraseMatcher.wordMatches(head, heard[s]) {
